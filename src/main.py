@@ -171,7 +171,7 @@ class UpdatePersonParam(BaseModel):
 class CreateOpportunityParam(BaseModel):
     name: str
     amount: MoneyModel | None = None
-    closeDate: dict | None = None
+    closeDate: str = ""
     stage: str
 
 
@@ -179,7 +179,7 @@ class UpdateOpportunityParam(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
     amount: MoneyModel | None = None
-    closeDate: dict | None = None
+    closeDate: Optional[str] = None
     stage: Optional[str] = None
     companyId: Optional[str] = None
     pointOfContactId: Optional[str] = None
@@ -845,10 +845,9 @@ async def create_opportunity(
         name: Name of the opportunity (required).
         stage: Pipeline stage (e.g. NEW, SCREENING, MEETING, PROPOSAL) (required).
         amount: Monetary amount with amountMicros and currencyCode. (optional)
-        closeDate: ISO 8601 date string for expected close date. (optional)
+        closeDate: ISO 8601 date string for expected close date (e.g. 2025-12-31T23:59:59Z). (optional)
     """
-    closeDatePayload = {"date": closeDate} if closeDate else None
-    params = CreateOpportunityParam(name=name, amount=amount, closeDate=closeDatePayload, stage=stage)
+    params = CreateOpportunityParam(name=name, amount=amount, closeDate=closeDate, stage=stage)
     payload = _build_payload(params)
     return await get_client().create_opportunity(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -875,15 +874,9 @@ async def update_opportunity(
         name: Updated name of the opportunity. (optional)
         amount: Updated monetary amount with amountMicros and currencyCode. (optional)
         closeDate: Updated ISO 8601 date string for expected close date. (optional)
-        stage: Updated pipeline stage. (optional)
-        companyId: Updated associated company ID. (optional)
-        pointOfContactId: Updated associated person ID. (optional)
-        ownerId: Updated owner workspace member ID. (optional)
-        position: Display sort order (lower values appear first). (optional)
     """
-    closeDatePayload = {"date": closeDate} if closeDate else None
     params = UpdateOpportunityParam(
-        id=id, name=name, amount=amount, closeDate=closeDatePayload, stage=stage,
+        name=name, amount=amount, closeDate=closeDate, stage=stage,
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
     payload = _build_payload(params)
@@ -918,9 +911,8 @@ async def update_opportunities(
         ownerId: Updated owner workspace member ID. (optional)
         position: Display sort order (lower values appear first). (optional)
     """
-    closeDatePayload = {"date": closeDate} if closeDate else None
     params = UpdateOpportunityParam(
-        name=name, amount=amount, closeDate=closeDatePayload, stage=stage,
+        name=name, amount=amount, closeDate=closeDate, stage=stage,
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
     payload = _build_payload(params)

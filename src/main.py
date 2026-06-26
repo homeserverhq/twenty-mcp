@@ -1111,7 +1111,7 @@ async def create_task(
         title: Title of the task (required).
         status: Task status (e.g. TODO, IN_PROGRESS, DONE) (required).
         markdown: Markdown-formatted body text for the task. (optional)
-        dueAt: Due date (ISO 8601 with UTC offset). (optional)
+        dueAt: Due date (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         assigneeId: ID of the workspace member assigned to this task. (optional)
     """
     params = CreateTaskParam(
@@ -1142,7 +1142,7 @@ async def update_task(
         title: Updated title of the task. (optional)
         markdown: Updated markdown-formatted body text. (optional)
         status: Updated task status. (optional)
-        dueAt: Updated due date (ISO 8601 with UTC offset). (optional)
+        dueAt: Updated due date (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         assigneeId: Updated assignee workspace member ID. (optional)
         position: Display sort order (lower values appear first). (optional)
     """
@@ -1175,7 +1175,7 @@ async def update_tasks(
         title: Updated title of the task. (optional)
         markdown: Updated markdown-formatted body text. (optional)
         status: Updated task status. (optional)
-        dueAt: Updated due date (ISO 8601 with UTC offset). (optional)
+        dueAt: Updated due date (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         assigneeId: Updated assignee workspace member ID. (optional)
         position: Display sort order (lower values appear first). (optional)
     """
@@ -1920,7 +1920,7 @@ async def create_timeline_activity(
 
     Args:
         name: Name of the activity (required).
-        happensAt: When the activity occurred (ISO 8601 with UTC offset) (required).
+        happensAt: When the activity occurred (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
     """
     params = CreateTimelineActivityParam(name=name, happensAt=happensAt)
     payload = _build_payload(params)
@@ -1957,7 +1957,7 @@ async def update_timeline_activity(
     Args:
         id: The unique ID of the timeline activity to update (required).
         name: Updated name of the activity. (optional)
-        happensAt: Updated occurrence time (ISO 8601 with UTC offset). (optional)
+        happensAt: Updated occurrence time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         workspaceMemberId: Updated associated workspace member ID. (optional)
         linkedRecordId: Updated linked record ID. (optional)
         linkedObjectMetadataId: Updated metadata ID. (optional)
@@ -2019,7 +2019,7 @@ async def update_timeline_activities(
     Args:
         ids: List of timeline activity IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
         name: Updated name of the activity. (optional)
-        happensAt: Updated occurrence time (ISO 8601 with UTC offset). (optional)
+        happensAt: Updated occurrence time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         workspaceMemberId: Updated associated workspace member ID. (optional)
         linkedRecordId: Updated linked record ID. (optional)
         linkedObjectMetadataId: Updated metadata ID. (optional)
@@ -2122,8 +2122,8 @@ async def create_calendar_event(
 
     Args:
         title: Title of the calendar event (required).
-        startsAt: Start time (ISO 8601 with UTC offset) (required).
-        endsAt: End time (ISO 8601 with UTC offset) (required).
+        startsAt: Start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
+        endsAt: End time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
         description: Description of the event. (optional)
         location: Event location with city/region/country/address. (optional)
         conferenceSolution: Video conference solution with name/icon/meetingUrl/dialData. (optional)
@@ -2162,8 +2162,8 @@ async def update_calendar_event(
         id: The unique ID of the calendar event to update (required).
         title: Updated title of the calendar event. (optional)
         description: Updated description. (optional)
-        startsAt: Updated start time (ISO 8601 with UTC offset). (optional)
-        endsAt: Updated end time (ISO 8601 with UTC offset). (optional)
+        startsAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
+        endsAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         isCanceled: Updated cancellation status. (optional)
         isFullDay: Updated all-day flag. (optional)
         location: Updated event location with city/region/country/address. (optional)
@@ -2206,8 +2206,8 @@ async def update_calendar_events(
         ids: List of calendar event IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
         title: Updated title of the calendar event. (optional)
         description: Updated description. (optional)
-        startsAt: Updated start time (ISO 8601 with UTC offset). (optional)
-        endsAt: Updated end time (ISO 8601 with UTC offset). (optional)
+        startsAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
+        endsAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         isCanceled: Updated cancellation status. (optional)
         isFullDay: Updated all-day flag. (optional)
         location: Updated event location with city/region/country/address. (optional)
@@ -2475,7 +2475,7 @@ async def update_message(
         headerMessageId: Updated header message ID. (optional)
         subject: Updated subject of the message. (optional)
         text: Updated body text of the message. (optional)
-        receivedAt: Updated received timestamp (ISO 8601 with UTC offset). (optional)
+        receivedAt: Updated received timestamp (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         messageThreadId: Updated associated message thread ID. (optional)
         messageCampaignId: Updated associated message campaign ID. (optional)
         deliveryStatus: Updated delivery status. (optional)
@@ -2510,7 +2510,7 @@ async def update_messages(
         headerMessageId: Updated header message ID. (optional)
         subject: Updated subject of the message. (optional)
         text: Updated body text of the message. (optional)
-        receivedAt: Updated received timestamp (ISO 8601 with UTC offset). (optional)
+        receivedAt: Updated received timestamp (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         messageThreadId: Updated associated message thread ID. (optional)
         messageCampaignId: Updated associated message campaign ID. (optional)
         deliveryStatus: Updated delivery status. (optional)
@@ -2889,8 +2889,8 @@ async def update_call_recording(
         applicationId: Updated application ID. (optional)
         externalBotId: Updated external bot ID. (optional)
         externalRecordingId: Updated external recording ID. (optional)
-        startedAt: Updated start time (ISO 8601 with UTC offset). (optional)
-        endedAt: Updated end time (ISO 8601 with UTC offset). (optional)
+        startedAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
+        endedAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         calendarEventId: Updated associated calendar event ID. (optional)
     """
     params = UpdateCallRecordingParam(
@@ -2929,8 +2929,8 @@ async def update_call_recordings(
         applicationId: Updated application ID. (optional)
         externalBotId: Updated external bot ID. (optional)
         externalRecordingId: Updated external recording ID. (optional)
-        startedAt: Updated start time (ISO 8601 with UTC offset). (optional)
-        endedAt: Updated end time (ISO 8601 with UTC offset). (optional)
+        startedAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
+        endedAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         calendarEventId: Updated associated calendar event ID. (optional)
     """
     params = UpdateCallRecordingParam(

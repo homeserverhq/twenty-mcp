@@ -11,7 +11,7 @@ import httpx
 COMMON_FIELDS: dict[str, set[str]] = {
     "company":                    {"id", "name", "domainName"},
     "person":                     {"id", "name", "emails", "jobTitle", "companyId"},
-    "opportunity":                {"id", "name", "amount", "stage", "companyId"},
+    "opportunity":                {"id", "name", "amount", "stage", "companyId", "pointOfContactId"},
     "note":                       {"id", "title", "bodyV2", "createdAt"},
     "task":                       {"id", "title", "bodyV2", "status", "dueAt"},
     "workflow":                   {"id", "name", "statuses", "lastPublishedVersionId"},

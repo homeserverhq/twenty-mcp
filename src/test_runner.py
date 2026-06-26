@@ -1,10 +1,9 @@
 """
 End-to-end test harness for Twenty MCP Server.
 
-Tests all 120 MCP tools via Streamable HTTP (JSON-RPC POST).
+Tests all MCP tools via Streamable HTTP (JSON-RPC POST).
 Per spec §5.5: per-resource CRUD loop — C1→C2→C3→C4→C5 per resource.
-No SKIP logic — downstream tests use placeholder ID "0" on failure.
-Phase 4: bulk update + bulk delete for all 17 resources.
+No SKIP logic. No placeholder IDs. Every test is honest.
 """
 
 import json
@@ -202,19 +201,19 @@ async def run_test_capture_id(
     tool: str,
     params: dict[str, Any],
     store_key: str,
-) -> str:
+) -> str | None:
     ok = await run_test(session, label, tool, params)
-    entity_id = "0"
+    entity_id: str | None = None
     if ok:
         for r in reversed(results):
             if r["label"] == label and r["status"] == "PASSED":
                 data = r.get("data", {})
                 if isinstance(data, dict):
-                    entity_id = data.get("id", "0")
+                    entity_id = data.get("id")
                 store[store_key] = data
                 break
     else:
-        store[store_key] = {"id": "0"}
+        store[store_key] = None
     return entity_id
 
 
@@ -453,7 +452,7 @@ RESOURCE_TESTS = [
 
     # 10. noteTarget — junction (requires noteId)
     ("noteTarget", "create_note_target",
-     lambda s, r: {"noteId": s.get("note", {}).get("id", "0")},
+     lambda s, r: {"noteId": s["note"]["id"]},
      "list_note_targets", "get_note_target_by_id",
      "update_note_target",
      lambda s, r: {},
@@ -461,7 +460,7 @@ RESOURCE_TESTS = [
 
     # 11. taskTarget — junction (requires taskId)
     ("taskTarget", "create_task_target",
-     lambda s, r: {"taskId": s.get("task", {}).get("id", "0")},
+     lambda s, r: {"taskId": s["task"]["id"]},
      "list_task_targets", "get_task_target_by_id",
      "update_task_target",
      lambda s, r: {},
@@ -497,7 +496,7 @@ RESOURCE_TESTS = [
     # 15. calendarEventParticipant — HARD dependency (requires calendarEventId)
     ("calendarEventParticipant", "create_calendar_event_participant",
      lambda s, r: {
-         "calendarEventId": s.get("calendarEvent", {}).get("id", "0"),
+         "calendarEventId": s["calendarEvent"]["id"],
          "handle": f"t{r}-calpart@example.com",
          "displayName": f"t{r}-CalPart",
      },
@@ -509,7 +508,7 @@ RESOURCE_TESTS = [
     # 16. messageParticipant — HARD dependency (requires messageId)
     ("messageParticipant", "create_message_participant",
      lambda s, r: {
-         "messageId": s.get("message", {}).get("id", "0"),
+         "messageId": s["message"]["id"],
          "handle": f"t{r}-msgpart",
          "displayName": f"t{r}-MsgPart",
          "role": "FROM",
@@ -548,7 +547,6 @@ async def main():
             await run_test(session, f"list_{label}", list_tool_name)
 
         # Phase 3: Per-resource CRUD loop (C1→C2→C3→C4→C5 per spec §5.5)
-        # No SKIP logic — use "0" as placeholder ID when create fails
         # C1 (create) runs forward so parents exist before children reference them.
         # C4 (delete) + C5 (verify) runs REVERSE so children are deleted before parents.
         log("\n=== Phase 3: Per-Resource CRUD Loop ===")
@@ -572,10 +570,15 @@ async def main():
             update_params_fn = entry[6]
             store_key = entry[8]
 
-            entity_data = store.get(store_key, {})
-            entity_id = entity_data.get("id", "0") if isinstance(entity_data, dict) else "0"
-            get_params = {"id": entity_id}
+            entity_data = store.get(store_key)
+            entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
 
+            if entity_id is None:
+                results.append({"label": f"C2 get_{label}", "tool": get_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
+                results.append({"label": f"C3 update_{label}", "tool": update_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
+                continue
+
+            get_params = {"id": entity_id}
             await run_test(session, f"C2 get_{label}", get_tool, get_params)
 
             upd_params = update_params_fn(store, rid)
@@ -589,10 +592,15 @@ async def main():
             delete_tool = entry[7]
             store_key = entry[8]
 
-            entity_data = store.get(store_key, {})
-            entity_id = entity_data.get("id", "0") if isinstance(entity_data, dict) else "0"
-            get_params = {"id": entity_id}
+            entity_data = store.get(store_key)
+            entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
 
+            if entity_id is None:
+                results.append({"label": f"C4 delete_{label}", "tool": delete_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
+                results.append({"label": f"C5 verify_delete_{label}", "tool": get_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
+                continue
+
+            get_params = {"id": entity_id}
             await run_test(session, f"C4 delete_{label}", delete_tool, {"id": entity_id})
             await run_verify_delete(session, f"C5 verify_delete_{label}", get_tool, get_params)
 
@@ -646,8 +654,13 @@ async def main():
             bulk_update_tool = BULK_UPDATE_TOOLS[label]
             bulk_delete_tool = BULK_DELETE_TOOLS[label]
 
-            entity_data = store.get(store_key, {})
-            entity_id = entity_data.get("id", "0") if isinstance(entity_data, dict) else "0"
+            entity_data = store.get(store_key)
+            entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
+
+            if entity_id is None:
+                results.append({"label": f"bulk_update_{label}", "tool": bulk_update_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
+                results.append({"label": f"bulk_delete_{label}", "tool": bulk_delete_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
+                continue
 
             upd = update_params_fn(store, rid)
             upd["ids"] = [entity_id, entity_id]

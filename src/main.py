@@ -51,7 +51,7 @@ def get_user_token() -> Optional[str]:
 # Pydantic Contract Models — Company
 # =============================================================================
 class CreateCompanyParam(BaseModel):
-    name: str = ""
+    name: str
     domainName: str = ""
     address: str = ""
     linkedinLink: str = ""
@@ -75,8 +75,8 @@ class UpdateCompanyParam(BaseModel):
 # Pydantic Contract Models — Person
 # =============================================================================
 class CreatePersonParam(BaseModel):
-    name: str = ""
-    emails: str = ""
+    name: str
+    emails: str
     phones: str = ""
     jobTitle: str = ""
     linkedinLink: str = ""
@@ -101,10 +101,10 @@ class UpdatePersonParam(BaseModel):
 # Pydantic Contract Models — Opportunity
 # =============================================================================
 class CreateOpportunityParam(BaseModel):
-    name: str = ""
+    name: str
     amount: str = ""
     closeDate: str = ""
-    stage: str = ""
+    stage: str
     companyId: str = ""
     pointOfContactId: str = ""
     ownerId: str = ""
@@ -127,7 +127,7 @@ class UpdateOpportunityParam(BaseModel):
 # Pydantic Contract Models — Note
 # =============================================================================
 class CreateNoteParam(BaseModel):
-    title: str = ""
+    title: str
     bodyV2: str = ""
     position: int = 0
 
@@ -143,9 +143,9 @@ class UpdateNoteParam(BaseModel):
 # Pydantic Contract Models — Task
 # =============================================================================
 class CreateTaskParam(BaseModel):
-    title: str = ""
+    title: str
     bodyV2: str = ""
-    status: str = ""
+    status: str
     dueAt: str = ""
     assigneeId: str = ""
     position: int = 0
@@ -165,8 +165,8 @@ class UpdateTaskParam(BaseModel):
 # Pydantic Contract Models — Workflow
 # =============================================================================
 class CreateWorkflowParam(BaseModel):
-    name: str = ""
-    statuses: str = "[]"
+    name: str
+    statuses: str
     lastPublishedVersionId: str = ""
     position: int = 0
 
@@ -201,8 +201,8 @@ class UpdateWorkspaceMemberParam(BaseModel):
 # Pydantic Contract Models — Attachment
 # =============================================================================
 class CreateAttachmentParam(BaseModel):
-    name: str = ""
-    fullPath: str = ""
+    name: str
+    fullPath: str
     fileCategory: str = ""
     authorId: str = ""
     targetTaskId: str = ""
@@ -234,7 +234,7 @@ class UpdateAttachmentParam(BaseModel):
 # Pydantic Contract Models — NoteTarget
 # =============================================================================
 class CreateNoteTargetParam(BaseModel):
-    noteId: str = ""
+    noteId: str
     targetPersonId: str = ""
     targetCompanyId: str = ""
     targetOpportunityId: str = ""
@@ -252,7 +252,7 @@ class UpdateNoteTargetParam(BaseModel):
 # Pydantic Contract Models — TaskTarget
 # =============================================================================
 class CreateTaskTargetParam(BaseModel):
-    taskId: str = ""
+    taskId: str
     targetPersonId: str = ""
     targetCompanyId: str = ""
     targetOpportunityId: str = ""
@@ -270,8 +270,8 @@ class UpdateTaskTargetParam(BaseModel):
 # Pydantic Contract Models — TimelineActivity
 # =============================================================================
 class CreateTimelineActivityParam(BaseModel):
-    name: str = ""
-    happensAt: str = ""
+    name: str
+    happensAt: str
     workspaceMemberId: str = ""
     linkedRecordId: str = ""
     linkedObjectMetadataId: str = ""
@@ -316,11 +316,11 @@ class UpdateTimelineActivityParam(BaseModel):
 # Pydantic Contract Models — CalendarEvent
 # =============================================================================
 class CreateCalendarEventParam(BaseModel):
-    title: str = ""
+    title: str
     isCanceled: bool = False
     isFullDay: bool = False
-    startsAt: str = ""
-    endsAt: str = ""
+    startsAt: str
+    endsAt: str
     description: str = ""
     location: str = ""
     iCalUid: str = ""
@@ -346,9 +346,9 @@ class UpdateCalendarEventParam(BaseModel):
 # Pydantic Contract Models — CalendarEventParticipant
 # =============================================================================
 class CreateCalendarEventParticipantParam(BaseModel):
-    calendarEventId: str = ""
-    handle: str = ""
-    displayName: str = ""
+    calendarEventId: str
+    handle: str
+    displayName: str
     isOrganizer: bool = False
     responseStatus: str = "NEEDS_ACTION"
     personId: str = ""
@@ -371,7 +371,7 @@ class UpdateCalendarEventParticipantParam(BaseModel):
 # =============================================================================
 class CreateMessageParam(BaseModel):
     headerMessageId: str = ""
-    subject: str = ""
+    subject: str
     text: str = ""
     receivedAt: str = ""
     messageThreadId: str = ""
@@ -394,7 +394,7 @@ class UpdateMessageParam(BaseModel):
 # Pydantic Contract Models — MessageThread
 # =============================================================================
 class CreateMessageThreadParam(BaseModel):
-    subject: str = ""
+    subject: str
 
 
 class UpdateMessageThreadParam(BaseModel):
@@ -406,10 +406,10 @@ class UpdateMessageThreadParam(BaseModel):
 # Pydantic Contract Models — MessageParticipant
 # =============================================================================
 class CreateMessageParticipantParam(BaseModel):
-    messageId: str = ""
-    role: str = ""
-    handle: str = ""
-    displayName: str = ""
+    messageId: str
+    role: str
+    handle: str
+    displayName: str
     personId: str = ""
     workspaceMemberId: str = ""
     messageCampaignId: str = ""
@@ -430,8 +430,8 @@ class UpdateMessageParticipantParam(BaseModel):
 # Pydantic Contract Models — CallRecording
 # =============================================================================
 class CreateCallRecordingParam(BaseModel):
-    title: str = ""
-    status: str = ""
+    title: str
+    status: str
     recordingRequestStatus: str = ""
     applicationId: str = ""
     externalBotId: str = ""
@@ -466,59 +466,17 @@ def _parse_json_field(value: str) -> Any:
         return {}
 
 
-# Fields that must be omitted when empty/blank — the backend rejects empty strings
-# for these composite, enum, UUID, or datetime fields
-_MUST_OMIT_IF_EMPTY: set[str] = {
-    # Composite JSON fields (expect dict/array, reject "")
-    "address", "linkedinLink", "annualRevenue",
-    "emails", "phones", "jobTitle",
-    "amount", "closeDate", "bodyV2", "statuses", "location",
-    "conferenceLink", "properties",
-    # UUID fields that are optional but reject ""
-    "noteId", "taskId", "companyId", "targetNoteId", "targetTaskId",
-    "targetPersonId", "targetCompanyId", "targetOpportunityId",
-    "authorId", "workspaceMemberId", "calendarEventId", "messageId",
-    "messageThreadId", "headerMessageId", "messageCampaignId",
-    "linkedRecordId", "linkedObjectMetadataId",
-    "targetWorkflowId", "targetWorkflowVersionId", "targetWorkflowRunId",
-    "targetDashboardId", "targetMessageListId", "targetMessageCampaignId",
-    "personId", "applicationId", "externalBotId", "externalRecordingId",
-    "recordingRequestStatus", "deliveryStatus",
-    # Additional nullable UUID fields that reject empty string
-    "accountOwnerId", "pointOfContactId", "assigneeId", "ownerId", "avatarUrl",
-    "userEmail", "position",
-    # Enum fields that reject ""
-    "stage", "status", "fileCategory", "dateFormat", "timeFormat", "numberFormat",
-    "currencyCode", "timeZone", "locale", "colorScheme",
-    # Datetime fields that reject ""
-    "startsAt", "endsAt", "dueAt", "receivedAt", "happensAt",
-    "startedAt", "endedAt",
-    # Non-nullable bool fields that reject None on update
-    "isCanceled", "isFullDay",
-}
-
-
 def _build_payload(params: BaseModel) -> dict[str, Any]:
     payload = {}
-    for k, v in params.model_dump(exclude_unset=True).items():
+    for k, v in params.model_dump(exclude_defaults=True).items():
         if k == "id":
             continue
         if v is None:
             continue
-        # Omit empty-string values for composite/enum/UUID/datetime fields
-        if v == "" and k in _MUST_OMIT_IF_EMPTY:
-            continue
-        # Parse JSON strings for fields that expect objects/arrays
         if isinstance(v, str) and v.startswith("{"):
-            parsed = _parse_json_field(v)
-            if not parsed and k in _MUST_OMIT_IF_EMPTY:
-                continue
-            payload[k] = parsed
+            payload[k] = _parse_json_field(v)
         elif isinstance(v, str) and v.startswith("["):
-            parsed = _parse_json_field(v)
-            if not parsed and k in _MUST_OMIT_IF_EMPTY:
-                continue
-            payload[k] = parsed
+            payload[k] = _parse_json_field(v)
         else:
             payload[k] = v
     return payload
@@ -558,7 +516,7 @@ async def get_company_by_id(id: str, include_all_fields: bool = False, ctx: Cont
 
 @mcp.tool()
 async def create_company(
-    name: str = "",
+    name: str,
     domainName: str = "",
     address: str = "",
     linkedinLink: str = "",
@@ -570,7 +528,7 @@ async def create_company(
     """Create a new company record.
 
     Args:
-        name: Name of the company.
+        name: Name of the company (required).
         domainName: JSON string with primaryLinkUrl and primaryLinkLabel.
         address: JSON string with address fields.
         linkedinLink: JSON string with LinkedIn URL details.
@@ -591,7 +549,7 @@ async def create_company(
 
 @mcp.tool()
 async def update_company(
-    id: str = "",
+    id: str,
     name: str = None,
     domainName: str = None,
     address: str = None,
@@ -626,7 +584,7 @@ async def update_company(
 
 @mcp.tool()
 async def update_companies(
-    ids: list[str] = [],
+    ids: list[str],
     name: str = None,
     domainName: str = None,
     address: str = None,
@@ -660,7 +618,7 @@ async def update_companies(
 
 
 @mcp.tool()
-async def delete_company_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_company_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a company by its ID (hard destroy).
 
     Args:
@@ -671,7 +629,7 @@ async def delete_company_by_id(id: str = "", ctx: Context = None) -> dict[str, A
 
 
 @mcp.tool()
-async def delete_companies(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_companies(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete companies by IDs (hard destroy).
 
     Args:
@@ -715,8 +673,8 @@ async def get_person_by_id(id: str, include_all_fields: bool = False, ctx: Conte
 
 @mcp.tool()
 async def create_person(
-    name: str = "",
-    emails: str = "",
+    name: str,
+    emails: str,
     phones: str = "",
     jobTitle: str = "",
     linkedinLink: str = "",
@@ -728,8 +686,8 @@ async def create_person(
     """Create a new person record.
 
     Args:
-        name: JSON string with firstName and lastName.
-        emails: JSON string with primaryEmail and additionalEmails.
+        name: JSON string with firstName and lastName (required).
+        emails: JSON string with primaryEmail and additionalEmails (required).
         phones: JSON string with phone fields.
         jobTitle: Job title of the person.
         linkedinLink: JSON string with LinkedIn URL details.
@@ -749,7 +707,7 @@ async def create_person(
 
 @mcp.tool()
 async def update_person(
-    id: str = "",
+    id: str,
     name: str = None,
     emails: str = None,
     phones: str = None,
@@ -785,7 +743,7 @@ async def update_person(
 
 @mcp.tool()
 async def update_people(
-    ids: list[str] = [],
+    ids: list[str],
     name: str = None,
     emails: str = None,
     phones: str = None,
@@ -820,7 +778,7 @@ async def update_people(
 
 
 @mcp.tool()
-async def delete_person_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_person_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a person by their ID (hard destroy).
 
     Args:
@@ -831,7 +789,7 @@ async def delete_person_by_id(id: str = "", ctx: Context = None) -> dict[str, An
 
 
 @mcp.tool()
-async def delete_people(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_people(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete people by IDs (hard destroy).
 
     Args:
@@ -875,10 +833,10 @@ async def get_opportunity_by_id(id: str, include_all_fields: bool = False, ctx: 
 
 @mcp.tool()
 async def create_opportunity(
-    name: str = "",
+    name: str,
+    stage: str,
     amount: str = "",
     closeDate: str = "",
-    stage: str = "",
     companyId: str = "",
     pointOfContactId: str = "",
     ownerId: str = "",
@@ -889,9 +847,9 @@ async def create_opportunity(
 
     Args:
         name: Name of the opportunity (required).
+        stage: Pipeline stage (e.g. NEW, SCREENING, MEETING, PROPOSAL) (required).
         amount: JSON string with amountMicros and currencyCode.
         closeDate: Expected close date (ISO 8601 with UTC offset).
-        stage: Pipeline stage (e.g. NEW, SCREENING, MEETING, PROPOSAL).
         companyId: ID of the associated company.
         pointOfContactId: ID of the associated person.
         ownerId: ID of the workspace member who owns this opportunity.
@@ -909,7 +867,7 @@ async def create_opportunity(
 
 @mcp.tool()
 async def update_opportunity(
-    id: str = "",
+    id: str,
     name: str = None,
     amount: str = None,
     closeDate: str = None,
@@ -945,7 +903,7 @@ async def update_opportunity(
 
 @mcp.tool()
 async def update_opportunities(
-    ids: list[str] = [],
+    ids: list[str],
     name: str = None,
     amount: str = None,
     closeDate: str = None,
@@ -980,7 +938,7 @@ async def update_opportunities(
 
 
 @mcp.tool()
-async def delete_opportunity_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_opportunity_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete an opportunity by its ID (hard destroy).
 
     Args:
@@ -991,7 +949,7 @@ async def delete_opportunity_by_id(id: str = "", ctx: Context = None) -> dict[st
 
 
 @mcp.tool()
-async def delete_opportunities(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_opportunities(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete opportunities by IDs (hard destroy).
 
     Args:
@@ -1035,7 +993,7 @@ async def get_note_by_id(id: str, include_all_fields: bool = False, ctx: Context
 
 @mcp.tool()
 async def create_note(
-    title: str = "",
+    title: str,
     bodyV2: str = "",
     position: int = 0,
     ctx: Context = None
@@ -1056,7 +1014,7 @@ async def create_note(
 
 @mcp.tool()
 async def update_note(
-    id: str = "",
+    id: str,
     title: str = None,
     bodyV2: str = None,
     position: int = None,
@@ -1079,7 +1037,7 @@ async def update_note(
 
 @mcp.tool()
 async def update_notes(
-    ids: list[str] = [],
+    ids: list[str],
     title: str = None,
     bodyV2: str = None,
     position: int = None,
@@ -1101,7 +1059,7 @@ async def update_notes(
 
 
 @mcp.tool()
-async def delete_note_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_note_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a note by its ID (hard destroy).
 
     Args:
@@ -1112,7 +1070,7 @@ async def delete_note_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]
 
 
 @mcp.tool()
-async def delete_notes(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_notes(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete notes by IDs (hard destroy).
 
     Args:
@@ -1156,9 +1114,9 @@ async def get_task_by_id(id: str, include_all_fields: bool = False, ctx: Context
 
 @mcp.tool()
 async def create_task(
-    title: str = "",
+    title: str,
+    status: str,
     bodyV2: str = "",
-    status: str = "",
     dueAt: str = "",
     assigneeId: str = "",
     position: int = 0,
@@ -1168,8 +1126,8 @@ async def create_task(
 
     Args:
         title: Title of the task (required).
+        status: Task status (e.g. TODO, IN_PROGRESS, DONE) (required).
         bodyV2: JSON string with blocknote and markdown fields.
-        status: Task status (e.g. TODO, IN_PROGRESS, DONE).
         dueAt: Due date (ISO 8601 with UTC offset).
         assigneeId: ID of the workspace member assigned to this task.
         position: Display sort order.
@@ -1186,7 +1144,7 @@ async def create_task(
 
 @mcp.tool()
 async def update_task(
-    id: str = "",
+    id: str,
     title: str = None,
     bodyV2: str = None,
     status: str = None,
@@ -1218,7 +1176,7 @@ async def update_task(
 
 @mcp.tool()
 async def update_tasks(
-    ids: list[str] = [],
+    ids: list[str],
     title: str = None,
     bodyV2: str = None,
     status: str = None,
@@ -1249,7 +1207,7 @@ async def update_tasks(
 
 
 @mcp.tool()
-async def delete_task_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_task_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a task by its ID (hard destroy).
 
     Args:
@@ -1260,7 +1218,7 @@ async def delete_task_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]
 
 
 @mcp.tool()
-async def delete_tasks(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_tasks(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete tasks by IDs (hard destroy).
 
     Args:
@@ -1304,8 +1262,8 @@ async def get_workflow_by_id(id: str, include_all_fields: bool = False, ctx: Con
 
 @mcp.tool()
 async def create_workflow(
-    name: str = "",
-    statuses: str = "[]",
+    name: str,
+    statuses: str,
     lastPublishedVersionId: str = "",
     position: int = 0,
     ctx: Context = None
@@ -1314,7 +1272,7 @@ async def create_workflow(
 
     Args:
         name: Name of the workflow (required).
-        statuses: JSON array of workflow statuses (e.g. ["ACTIVE"]).
+        statuses: JSON array of workflow statuses (e.g. ["ACTIVE"]) (required).
         lastPublishedVersionId: ID of the last published version.
         position: Display sort order.
     """
@@ -1329,7 +1287,7 @@ async def create_workflow(
 
 @mcp.tool()
 async def update_workflow(
-    id: str = "",
+    id: str,
     name: str = None,
     statuses: str = None,
     lastPublishedVersionId: str = None,
@@ -1355,8 +1313,7 @@ async def update_workflow(
 
 
 @mcp.tool()
-@mcp.tool()
-async def delete_workflow_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_workflow_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a workflow by its ID (hard destroy).
 
     Args:
@@ -1400,7 +1357,7 @@ async def get_workspace_member_by_id(id: str, include_all_fields: bool = False, 
 
 @mcp.tool()
 async def update_workspace_member(
-    id: str = "",
+    id: str,
     name: str = None,
     colorScheme: str = None,
     locale: str = None,
@@ -1443,7 +1400,7 @@ async def update_workspace_member(
 
 @mcp.tool()
 async def update_workspace_members(
-    ids: list[str] = [],
+    ids: list[str],
     name: str = None,
     colorScheme: str = None,
     locale: str = None,
@@ -1485,7 +1442,7 @@ async def update_workspace_members(
 
 
 @mcp.tool()
-async def delete_workspace_member_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_workspace_member_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a workspace member by their ID (hard destroy).
 
     Args:
@@ -1496,7 +1453,7 @@ async def delete_workspace_member_by_id(id: str = "", ctx: Context = None) -> di
 
 
 @mcp.tool()
-async def delete_workspace_members(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_workspace_members(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete workspace members by IDs (hard destroy).
 
     Args:
@@ -1540,8 +1497,8 @@ async def get_attachment_by_id(id: str, include_all_fields: bool = False, ctx: C
 
 @mcp.tool()
 async def create_attachment(
-    name: str = "",
-    fullPath: str = "",
+    name: str,
+    fullPath: str,
     fileCategory: str = "",
     authorId: str = "",
     targetTaskId: str = "",
@@ -1556,8 +1513,8 @@ async def create_attachment(
     """Create a new attachment record.
 
     Args:
-        name: Name of the attachment file.
-        fullPath: Full file path.
+        name: Name of the attachment file (required).
+        fullPath: Full file path (required).
         fileCategory: Category of the file.
         authorId: ID of the workspace member who authored this attachment.
         targetTaskId: ID of the associated task.
@@ -1583,7 +1540,7 @@ async def create_attachment(
 
 @mcp.tool()
 async def update_attachment(
-    id: str = "",
+    id: str,
     name: str = None,
     fullPath: str = None,
     type: str = None,
@@ -1630,7 +1587,7 @@ async def update_attachment(
 
 @mcp.tool()
 async def update_attachments(
-    ids: list[str] = [],
+    ids: list[str],
     name: str = None,
     fullPath: str = None,
     type: str = None,
@@ -1676,7 +1633,7 @@ async def update_attachments(
 
 
 @mcp.tool()
-async def delete_attachment_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_attachment_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete an attachment by its ID (hard destroy).
 
     Args:
@@ -1731,7 +1688,7 @@ async def get_note_target_by_id(id: str, include_all_fields: bool = False, ctx: 
 
 @mcp.tool()
 async def create_note_target(
-    noteId: str = "",
+    noteId: str,
     targetPersonId: str = "",
     targetCompanyId: str = "",
     targetOpportunityId: str = "",
@@ -1740,7 +1697,7 @@ async def create_note_target(
     """Create a new note target record.
 
     Args:
-        noteId: ID of the associated note.
+        noteId: ID of the associated note (required).
         targetPersonId: ID of the associated person.
         targetCompanyId: ID of the associated company.
         targetOpportunityId: ID of the associated opportunity.
@@ -1757,7 +1714,7 @@ async def create_note_target(
 
 @mcp.tool()
 async def update_note_target(
-    id: str = "",
+    id: str,
     noteId: str = None,
     targetPersonId: str = None,
     targetCompanyId: str = None,
@@ -1785,7 +1742,7 @@ async def update_note_target(
 
 @mcp.tool()
 async def update_note_targets(
-    ids: list[str] = [],
+    ids: list[str],
     noteId: str = None,
     targetPersonId: str = None,
     targetCompanyId: str = None,
@@ -1812,7 +1769,7 @@ async def update_note_targets(
 
 
 @mcp.tool()
-async def delete_note_target_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_note_target_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a note target by its ID (hard destroy).
 
     Args:
@@ -1823,7 +1780,7 @@ async def delete_note_target_by_id(id: str = "", ctx: Context = None) -> dict[st
 
 
 @mcp.tool()
-async def delete_note_targets(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_note_targets(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete note targets by IDs (hard destroy).
 
     Args:
@@ -1867,7 +1824,7 @@ async def get_task_target_by_id(id: str, include_all_fields: bool = False, ctx: 
 
 @mcp.tool()
 async def create_task_target(
-    taskId: str = "",
+    taskId: str,
     targetPersonId: str = "",
     targetCompanyId: str = "",
     targetOpportunityId: str = "",
@@ -1876,7 +1833,7 @@ async def create_task_target(
     """Create a new task target record.
 
     Args:
-        taskId: ID of the associated task.
+        taskId: ID of the associated task (required).
         targetPersonId: ID of the associated person.
         targetCompanyId: ID of the associated company.
         targetOpportunityId: ID of the associated opportunity.
@@ -1893,7 +1850,7 @@ async def create_task_target(
 
 @mcp.tool()
 async def update_task_target(
-    id: str = "",
+    id: str,
     taskId: str = None,
     targetPersonId: str = None,
     targetCompanyId: str = None,
@@ -1921,7 +1878,7 @@ async def update_task_target(
 
 @mcp.tool()
 async def update_task_targets(
-    ids: list[str] = [],
+    ids: list[str],
     taskId: str = None,
     targetPersonId: str = None,
     targetCompanyId: str = None,
@@ -1948,7 +1905,7 @@ async def update_task_targets(
 
 
 @mcp.tool()
-async def delete_task_target_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_task_target_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a task target by its ID (hard destroy).
 
     Args:
@@ -1959,7 +1916,7 @@ async def delete_task_target_by_id(id: str = "", ctx: Context = None) -> dict[st
 
 
 @mcp.tool()
-async def delete_task_targets(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_task_targets(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete task targets by IDs (hard destroy).
 
     Args:
@@ -2003,8 +1960,8 @@ async def get_timeline_activity_by_id(id: str, include_all_fields: bool = False,
 
 @mcp.tool()
 async def create_timeline_activity(
-    name: str = "",
-    happensAt: str = "",
+    name: str,
+    happensAt: str,
     workspaceMemberId: str = "",
     linkedRecordId: str = "",
     linkedObjectMetadataId: str = "",
@@ -2027,7 +1984,7 @@ async def create_timeline_activity(
 
     Args:
         name: Name of the activity (required).
-        happensAt: When the activity occurred (ISO 8601 with UTC offset).
+        happensAt: When the activity occurred (ISO 8601 with UTC offset) (required).
         workspaceMemberId: ID of the associated workspace member.
         linkedRecordId: ID of the linked record.
         linkedObjectMetadataId: Metadata ID of the linked object.
@@ -2063,7 +2020,7 @@ async def create_timeline_activity(
 
 @mcp.tool()
 async def update_timeline_activity(
-    id: str = "",
+    id: str,
     name: str = None,
     happensAt: str = None,
     workspaceMemberId: str = None,
@@ -2125,7 +2082,7 @@ async def update_timeline_activity(
 
 @mcp.tool()
 async def update_timeline_activities(
-    ids: list[str] = [],
+    ids: list[str],
     name: str = None,
     happensAt: str = None,
     workspaceMemberId: str = None,
@@ -2186,7 +2143,7 @@ async def update_timeline_activities(
 
 
 @mcp.tool()
-async def delete_timeline_activity_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_timeline_activity_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a timeline activity by its ID (hard destroy).
 
     Args:
@@ -2197,7 +2154,7 @@ async def delete_timeline_activity_by_id(id: str = "", ctx: Context = None) -> d
 
 
 @mcp.tool()
-async def delete_timeline_activities(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_timeline_activities(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete timeline activities by IDs (hard destroy).
 
     Args:
@@ -2241,11 +2198,11 @@ async def get_calendar_event_by_id(id: str, include_all_fields: bool = False, ct
 
 @mcp.tool()
 async def create_calendar_event(
-    title: str = "",
+    title: str,
+    startsAt: str,
+    endsAt: str,
     isCanceled: bool = False,
     isFullDay: bool = False,
-    startsAt: str = "",
-    endsAt: str = "",
     description: str = "",
     location: str = "",
     iCalUid: str = "",
@@ -2256,11 +2213,11 @@ async def create_calendar_event(
     """Create a new calendar event record.
 
     Args:
-        title: Title of the calendar event.
+        title: Title of the calendar event (required).
+        startsAt: Start time (ISO 8601 with UTC offset) (required).
+        endsAt: End time (ISO 8601 with UTC offset) (required).
         isCanceled: Whether the event is canceled.
         isFullDay: Whether the event is an all-day event.
-        startsAt: Start time (ISO 8601 with UTC offset).
-        endsAt: End time (ISO 8601 with UTC offset).
         description: Description of the event.
         location: Location of the event.
         iCalUid: iCal UID for the event.
@@ -2281,7 +2238,7 @@ async def create_calendar_event(
 
 @mcp.tool()
 async def update_calendar_event(
-    id: str = "",
+    id: str,
     title: str = None,
     isCanceled: bool = None,
     isFullDay: bool = None,
@@ -2323,7 +2280,7 @@ async def update_calendar_event(
 
 @mcp.tool()
 async def update_calendar_events(
-    ids: list[str] = [],
+    ids: list[str],
     title: str = None,
     isCanceled: bool = None,
     isFullDay: bool = None,
@@ -2364,7 +2321,7 @@ async def update_calendar_events(
 
 
 @mcp.tool()
-async def delete_calendar_event_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_calendar_event_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a calendar event by its ID (hard destroy).
 
     Args:
@@ -2375,7 +2332,7 @@ async def delete_calendar_event_by_id(id: str = "", ctx: Context = None) -> dict
 
 
 @mcp.tool()
-async def delete_calendar_events(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_calendar_events(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete calendar events by IDs (hard destroy).
 
     Args:
@@ -2419,9 +2376,9 @@ async def get_calendar_event_participant_by_id(id: str, include_all_fields: bool
 
 @mcp.tool()
 async def create_calendar_event_participant(
-    calendarEventId: str = "",
-    handle: str = "",
-    displayName: str = "",
+    calendarEventId: str,
+    handle: str,
+    displayName: str,
     isOrganizer: bool = False,
     responseStatus: str = "NEEDS_ACTION",
     personId: str = "",
@@ -2432,8 +2389,8 @@ async def create_calendar_event_participant(
 
     Args:
         calendarEventId: ID of the associated calendar event (required).
-        handle: Email handle of the participant.
-        displayName: Display name of the participant.
+        handle: Email handle of the participant (required).
+        displayName: Display name of the participant (required).
         isOrganizer: Whether this participant is the organizer.
         responseStatus: Response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED).
         personId: ID of the associated person.
@@ -2452,7 +2409,7 @@ async def create_calendar_event_participant(
 
 @mcp.tool()
 async def update_calendar_event_participant(
-    id: str = "",
+    id: str,
     calendarEventId: str = None,
     handle: str = None,
     displayName: str = None,
@@ -2487,7 +2444,7 @@ async def update_calendar_event_participant(
 
 @mcp.tool()
 async def update_calendar_event_participants(
-    ids: list[str] = [],
+    ids: list[str],
     calendarEventId: str = None,
     handle: str = None,
     displayName: str = None,
@@ -2576,8 +2533,8 @@ async def get_message_by_id(id: str, include_all_fields: bool = False, ctx: Cont
 
 @mcp.tool()
 async def create_message(
+    subject: str,
     headerMessageId: str = "",
-    subject: str = "",
     text: str = "",
     receivedAt: str = "",
     messageThreadId: str = "",
@@ -2588,8 +2545,8 @@ async def create_message(
     """Create a new message record.
 
     Args:
+        subject: Subject of the message (required).
         headerMessageId: Header message ID.
-        subject: Subject of the message.
         text: Body text of the message.
         receivedAt: Received timestamp (ISO 8601 with UTC offset).
         messageThreadId: ID of the associated message thread.
@@ -2609,7 +2566,7 @@ async def create_message(
 
 @mcp.tool()
 async def update_message(
-    id: str = "",
+    id: str,
     headerMessageId: str = None,
     subject: str = None,
     text: str = None,
@@ -2644,7 +2601,7 @@ async def update_message(
 
 @mcp.tool()
 async def update_messages(
-    ids: list[str] = [],
+    ids: list[str],
     headerMessageId: str = None,
     subject: str = None,
     text: str = None,
@@ -2678,7 +2635,7 @@ async def update_messages(
 
 
 @mcp.tool()
-async def delete_message_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_message_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message by its ID (hard destroy).
 
     Args:
@@ -2689,7 +2646,7 @@ async def delete_message_by_id(id: str = "", ctx: Context = None) -> dict[str, A
 
 
 @mcp.tool()
-async def delete_messages(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_messages(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete messages by IDs (hard destroy).
 
     Args:
@@ -2733,13 +2690,13 @@ async def get_message_thread_by_id(id: str, include_all_fields: bool = False, ct
 
 @mcp.tool()
 async def create_message_thread(
-    subject: str = "",
+    subject: str,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new message thread record.
 
     Args:
-        subject: Subject of the message thread.
+        subject: Subject of the message thread (required).
     """
     params = CreateMessageThreadParam(subject=subject)
     payload = _build_payload(params)
@@ -2750,7 +2707,7 @@ async def create_message_thread(
 
 @mcp.tool()
 async def update_message_thread(
-    id: str = "",
+    id: str,
     subject: str = None,
     ctx: Context = None
 ) -> dict[str, Any]:
@@ -2769,7 +2726,7 @@ async def update_message_thread(
 
 @mcp.tool()
 async def update_message_threads(
-    ids: list[str] = [],
+    ids: list[str],
     subject: str = None,
     ctx: Context = None
 ) -> dict[str, Any]:
@@ -2787,7 +2744,7 @@ async def update_message_threads(
 
 
 @mcp.tool()
-async def delete_message_thread_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_message_thread_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message thread by its ID (hard destroy).
 
     Args:
@@ -2798,7 +2755,7 @@ async def delete_message_thread_by_id(id: str = "", ctx: Context = None) -> dict
 
 
 @mcp.tool()
-async def delete_message_threads(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_message_threads(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete message threads by IDs (hard destroy).
 
     Args:
@@ -2842,10 +2799,10 @@ async def get_message_participant_by_id(id: str, include_all_fields: bool = Fals
 
 @mcp.tool()
 async def create_message_participant(
-    messageId: str = "",
-    role: str = "",
-    handle: str = "",
-    displayName: str = "",
+    messageId: str,
+    role: str,
+    handle: str,
+    displayName: str,
     personId: str = "",
     workspaceMemberId: str = "",
     messageCampaignId: str = "",
@@ -2855,9 +2812,9 @@ async def create_message_participant(
 
     Args:
         messageId: ID of the associated message (required).
-        role: Role of the participant.
-        handle: Email handle of the participant.
-        displayName: Display name of the participant.
+        role: Role of the participant (required).
+        handle: Email handle of the participant (required).
+        displayName: Display name of the participant (required).
         personId: ID of the associated person.
         workspaceMemberId: ID of the associated workspace member.
         messageCampaignId: ID of the associated message campaign.
@@ -2875,7 +2832,7 @@ async def create_message_participant(
 
 @mcp.tool()
 async def update_message_participant(
-    id: str = "",
+    id: str,
     messageId: str = None,
     role: str = None,
     handle: str = None,
@@ -2910,7 +2867,7 @@ async def update_message_participant(
 
 @mcp.tool()
 async def update_message_participants(
-    ids: list[str] = [],
+    ids: list[str],
     messageId: str = None,
     role: str = None,
     handle: str = None,
@@ -2944,7 +2901,7 @@ async def update_message_participants(
 
 
 @mcp.tool()
-async def delete_message_participant_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_message_participant_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message participant by its ID (hard destroy).
 
     Args:
@@ -2955,7 +2912,7 @@ async def delete_message_participant_by_id(id: str = "", ctx: Context = None) ->
 
 
 @mcp.tool()
-async def delete_message_participants(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_message_participants(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete message participants by IDs (hard destroy).
 
     Args:
@@ -2999,8 +2956,8 @@ async def get_call_recording_by_id(id: str, include_all_fields: bool = False, ct
 
 @mcp.tool()
 async def create_call_recording(
-    title: str = "",
-    status: str = "",
+    title: str,
+    status: str,
     recordingRequestStatus: str = "",
     applicationId: str = "",
     externalBotId: str = "",
@@ -3014,7 +2971,7 @@ async def create_call_recording(
 
     Args:
         title: Title of the call recording (required).
-        status: Status of the call recording.
+        status: Status of the call recording (required).
         recordingRequestStatus: Request status for the recording.
         applicationId: Application ID.
         externalBotId: External bot ID.
@@ -3037,7 +2994,7 @@ async def create_call_recording(
 
 @mcp.tool()
 async def update_call_recording(
-    id: str = "",
+    id: str,
     title: str = None,
     status: str = None,
     recordingRequestStatus: str = None,
@@ -3077,7 +3034,7 @@ async def update_call_recording(
 
 @mcp.tool()
 async def update_call_recordings(
-    ids: list[str] = [],
+    ids: list[str],
     title: str = None,
     status: str = None,
     recordingRequestStatus: str = None,
@@ -3116,7 +3073,7 @@ async def update_call_recordings(
 
 
 @mcp.tool()
-async def delete_call_recording_by_id(id: str = "", ctx: Context = None) -> dict[str, Any]:
+async def delete_call_recording_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a call recording by its ID (hard destroy).
 
     Args:
@@ -3127,7 +3084,7 @@ async def delete_call_recording_by_id(id: str = "", ctx: Context = None) -> dict
 
 
 @mcp.tool()
-async def delete_call_recordings(ids: list[str] = [], ctx: Context = None) -> dict[str, Any]:
+async def delete_call_recordings(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete call recordings by IDs (hard destroy).
 
     Args:

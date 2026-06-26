@@ -2,6 +2,7 @@ import os
 import datetime as dt
 import re
 import json
+import urllib.parse
 from typing import Any, Optional
 
 import httpx
@@ -153,7 +154,7 @@ class TwentyClient:
         return data
 
     async def update_companies(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/companies?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCompanies", {})
@@ -166,7 +167,7 @@ class TwentyClient:
         return await self.delete(f"/rest/companies/{company_id}", api_key)
 
     async def delete_companies(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/companies?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -204,7 +205,7 @@ class TwentyClient:
         return data
 
     async def update_people(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/people?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updatePeople", {})
@@ -217,7 +218,7 @@ class TwentyClient:
         return await self.delete(f"/rest/people/{person_id}", api_key)
 
     async def delete_people(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/people?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -255,7 +256,7 @@ class TwentyClient:
         return data
 
     async def update_opportunities(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/opportunities?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateOpportunities", {})
@@ -268,7 +269,7 @@ class TwentyClient:
         return await self.delete(f"/rest/opportunities/{opportunity_id}", api_key)
 
     async def delete_opportunities(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/opportunities?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -306,7 +307,7 @@ class TwentyClient:
         return data
 
     async def update_notes(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/notes?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateNotes", {})
@@ -319,7 +320,7 @@ class TwentyClient:
         return await self.delete(f"/rest/notes/{note_id}", api_key)
 
     async def delete_notes(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/notes?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -357,7 +358,7 @@ class TwentyClient:
         return data
 
     async def update_tasks(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/tasks?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateTasks", {})
@@ -370,7 +371,7 @@ class TwentyClient:
         return await self.delete(f"/rest/tasks/{task_id}", api_key)
 
     async def delete_tasks(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/tasks?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -437,7 +438,7 @@ class TwentyClient:
         return data
 
     async def update_workspace_members(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/workspaceMembers?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateWorkspaceMembers", {})
@@ -450,7 +451,7 @@ class TwentyClient:
         return await self.delete(f"/rest/workspaceMembers/{workspace_member_id}", api_key)
 
     async def delete_workspace_members(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/workspaceMembers?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -488,7 +489,7 @@ class TwentyClient:
         return data
 
     async def update_attachments(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/attachments?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateAttachments", {})
@@ -501,7 +502,7 @@ class TwentyClient:
         return await self.delete(f"/rest/attachments/{attachment_id}", api_key)
 
     async def delete_attachments(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/attachments?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -539,7 +540,7 @@ class TwentyClient:
         return data
 
     async def update_note_targets(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/noteTargets?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateNoteTargets", {})
@@ -552,7 +553,7 @@ class TwentyClient:
         return await self.delete(f"/rest/noteTargets/{note_target_id}", api_key)
 
     async def delete_note_targets(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/noteTargets?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -590,7 +591,7 @@ class TwentyClient:
         return data
 
     async def update_task_targets(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/taskTargets?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateTaskTargets", {})
@@ -603,7 +604,7 @@ class TwentyClient:
         return await self.delete(f"/rest/taskTargets/{task_target_id}", api_key)
 
     async def delete_task_targets(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/taskTargets?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -641,7 +642,7 @@ class TwentyClient:
         return data
 
     async def update_timeline_activities(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/timelineActivities?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateTimelineActivities", {})
@@ -654,7 +655,7 @@ class TwentyClient:
         return await self.delete(f"/rest/timelineActivities/{timeline_activity_id}", api_key)
 
     async def delete_timeline_activities(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/timelineActivities?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -692,7 +693,7 @@ class TwentyClient:
         return data
 
     async def update_calendar_events(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/calendarEvents?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCalendarEvents", {})
@@ -705,7 +706,7 @@ class TwentyClient:
         return await self.delete(f"/rest/calendarEvents/{calendar_event_id}", api_key)
 
     async def delete_calendar_events(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/calendarEvents?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -743,7 +744,7 @@ class TwentyClient:
         return data
 
     async def update_calendar_event_participants(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/calendarEventParticipants?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCalendarEventParticipants", {})
@@ -756,7 +757,7 @@ class TwentyClient:
         return await self.delete(f"/rest/calendarEventParticipants/{calendar_event_participant_id}", api_key)
 
     async def delete_calendar_event_participants(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/calendarEventParticipants?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -794,7 +795,7 @@ class TwentyClient:
         return data
 
     async def update_messages(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/messages?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateMessages", {})
@@ -807,7 +808,7 @@ class TwentyClient:
         return await self.delete(f"/rest/messages/{message_id}", api_key)
 
     async def delete_messages(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/messages?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -845,7 +846,7 @@ class TwentyClient:
         return data
 
     async def update_message_threads(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/messageThreads?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateMessageThreads", {})
@@ -858,7 +859,7 @@ class TwentyClient:
         return await self.delete(f"/rest/messageThreads/{message_thread_id}", api_key)
 
     async def delete_message_threads(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/messageThreads?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -896,7 +897,7 @@ class TwentyClient:
         return data
 
     async def update_message_participants(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/messageParticipants?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateMessageParticipants", {})
@@ -909,7 +910,7 @@ class TwentyClient:
         return await self.delete(f"/rest/messageParticipants/{message_participant_id}", api_key)
 
     async def delete_message_participants(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/messageParticipants?filter=id[in]:{id_list}", api_key)
 
     # =========================================================================
@@ -947,7 +948,7 @@ class TwentyClient:
         return data
 
     async def update_call_recordings(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/callRecordings?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCallRecordings", {})
@@ -960,5 +961,5 @@ class TwentyClient:
         return await self.delete(f"/rest/callRecordings/{call_recording_id}", api_key)
 
     async def delete_call_recordings(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = json.dumps([str(i) for i in ids])
+        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         return await self.delete(f"/rest/callRecordings?filter=id[in]:{id_list}", api_key)

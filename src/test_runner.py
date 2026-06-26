@@ -451,17 +451,17 @@ RESOURCE_TESTS = [
      lambda s, r: {"subject": f"t{r}-Message-Upd"},
      "delete_message_by_id", "message"),
 
-    # 10. noteTarget — junction (optional FKs)
+    # 10. noteTarget — junction (requires noteId)
     ("noteTarget", "create_note_target",
-     lambda s, r: {},
+     lambda s, r: {"noteId": s.get("note", {}).get("id", "0")},
      "list_note_targets", "get_note_target_by_id",
      "update_note_target",
      lambda s, r: {},
      "delete_note_target_by_id", "noteTarget"),
 
-    # 11. taskTarget — junction (optional FKs)
+    # 11. taskTarget — junction (requires taskId)
     ("taskTarget", "create_task_target",
-     lambda s, r: {},
+     lambda s, r: {"taskId": s.get("task", {}).get("id", "0")},
      "list_task_targets", "get_task_target_by_id",
      "update_task_target",
      lambda s, r: {},
@@ -480,7 +480,7 @@ RESOURCE_TESTS = [
 
     # 13. attachment — standalone (optional authorId + target IDs)
     ("attachment", "create_attachment",
-     lambda s, r: {"name": f"t{r}-Attachment"},
+     lambda s, r: {"name": f"t{r}-Attachment", "fullPath": f"/tmp/t{r}-att.pdf"},
      "list_attachments", "get_attachment_by_id",
      "update_attachment",
      lambda s, r: {"name": f"t{r}-Attachment-Upd"},
@@ -650,9 +650,9 @@ async def main():
             entity_id = entity_data.get("id", "0") if isinstance(entity_data, dict) else "0"
 
             upd = update_params_fn(store, rid)
-            upd["ids"] = [entity_id]
+            upd["ids"] = [entity_id, entity_id]
             await run_test(session, f"bulk_update_{label}", bulk_update_tool, upd)
-            await run_test(session, f"bulk_delete_{label}", bulk_delete_tool, {"ids": [entity_id]})
+            await run_test(session, f"bulk_delete_{label}", bulk_delete_tool, {"ids": [entity_id, entity_id]})
 
         # Phase 5: Leak Detection
         log("\n=== Phase 5: Leak Detection ===")

@@ -72,8 +72,6 @@ The MCP server serves at `http://twenty-mcp:80/mcp` (Streamable HTTP).
 - **📝 Required Fields & Defaults** — Each `create_*` tool requires specific
   key fields. All other fields default to empty strings or reasonable values.
   The `createdBy` field is automatically populated by the backend API.
-- **🗑️ Hard Destroy Deletes** — All delete operations permanently remove
-  records. There is no soft-delete or trash recovery.
 
 ## 🛠️ API Tool Mapping
 
@@ -86,8 +84,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_company` — Create a new company record
 - `update_company` — Update an existing company record
 - `update_companies` — Bulk update company records by IDs
-- `delete_company_by_id` — Delete a company by ID (hard destroy)
-- `delete_companies` — Bulk delete companies by IDs (hard destroy)
+- `delete_company_by_id` — Delete a company by ID
+- `delete_companies` — Bulk delete companies by IDs
 
 ### 🧑 Person (7 tools)
 
@@ -96,8 +94,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_person` — Create a new person record
 - `update_person` — Update an existing person record
 - `update_people` — Bulk update person records by IDs
-- `delete_person_by_id` — Delete a person by ID (hard destroy)
-- `delete_people` — Bulk delete people by IDs (hard destroy)
+- `delete_person_by_id` — Delete a person by ID
+- `delete_people` — Bulk delete people by IDs
 
 ### 💰 Opportunity (7 tools)
 
@@ -106,8 +104,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_opportunity` — Create a new opportunity record
 - `update_opportunity` — Update an existing opportunity record
 - `update_opportunities` — Bulk update opportunity records by IDs
-- `delete_opportunity_by_id` — Delete an opportunity by ID (hard destroy)
-- `delete_opportunities` — Bulk delete opportunities by IDs (hard destroy)
+- `delete_opportunity_by_id` — Delete an opportunity by ID
+- `delete_opportunities` — Bulk delete opportunities by IDs
 
 ### 📓 Note (7 tools)
 
@@ -116,8 +114,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_note` — Create a new note record
 - `update_note` — Update an existing note record
 - `update_notes` — Bulk update note records by IDs
-- `delete_note_by_id` — Delete a note by ID (hard destroy)
-- `delete_notes` — Bulk delete notes by IDs (hard destroy)
+- `delete_note_by_id` — Delete a note by ID
+- `delete_notes` — Bulk delete notes by IDs
 
 ### ✅ Task (7 tools)
 
@@ -126,8 +124,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_task` — Create a new task record
 - `update_task` — Update an existing task record
 - `update_tasks` — Bulk update task records by IDs
-- `delete_task_by_id` — Delete a task by ID (hard destroy)
-- `delete_tasks` — Bulk delete tasks by IDs (hard destroy)
+- `delete_task_by_id` — Delete a task by ID
+- `delete_tasks` — Bulk delete tasks by IDs
 
 ### 🌀 Workflow (5 tools)
 
@@ -135,7 +133,7 @@ The server implements 117 MCP tools organized into the following categories:
 - `get_workflow_by_id` — Get a single workflow by ID
 - `create_workflow` — Create a new workflow record
 - `update_workflow` — Update an existing workflow record
-- `delete_workflow_by_id` — Delete a workflow by ID (hard destroy)
+- `delete_workflow_by_id` — Delete a workflow by ID
 
 ### 🆔 WorkspaceMember (6 tools)
 
@@ -143,8 +141,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `get_workspace_member_by_id` — Get a single workspace member by ID
 - `update_workspace_member` — Update an existing workspace member record
 - `update_workspace_members` — Bulk update workspace member records by IDs
-- `delete_workspace_member_by_id` — Delete a workspace member by ID (hard destroy)
-- `delete_workspace_members` — Bulk delete workspace members by IDs (hard destroy)
+- `delete_workspace_member_by_id` — Delete a workspace member by ID
+- `delete_workspace_members` — Bulk delete workspace members by IDs
 
 ### 📎 Attachment (7 tools)
 
@@ -153,8 +151,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_attachment` — Create a new attachment record
 - `update_attachment` — Update an existing attachment record
 - `update_attachments` — Bulk update attachment records by IDs
-- `delete_attachment_by_id` — Delete an attachment by ID (hard destroy)
-- `delete_attachments` — Bulk delete attachments by IDs (hard destroy)
+- `delete_attachment_by_id` — Delete an attachment by ID
+- `delete_attachments` — Bulk delete attachments by IDs
 
 ### 🔖 NoteTarget (7 tools)
 
@@ -163,8 +161,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_note_target` — Create a new note target record
 - `update_note_target` — Update an existing note target record
 - `update_note_targets` — Bulk update note target records by IDs
-- `delete_note_target_by_id` — Delete a note target by ID (hard destroy)
-- `delete_note_targets` — Bulk delete note targets by IDs (hard destroy)
+- `delete_note_target_by_id` — Delete a note target by ID
+- `delete_note_targets` — Bulk delete note targets by IDs
 
 ### 🎯 TaskTarget (7 tools)
 
@@ -173,8 +171,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_task_target` — Create a new task target record
 - `update_task_target` — Update an existing task target record
 - `update_task_targets` — Bulk update task target records by IDs
-- `delete_task_target_by_id` — Delete a task target by ID (hard destroy)
-- `delete_task_targets` — Bulk delete task targets by IDs (hard destroy)
+- `delete_task_target_by_id` — Delete a task target by ID
+- `delete_task_targets` — Bulk delete task targets by IDs
 
 ### ⏰ TimelineActivity (7 tools)
 
@@ -183,8 +181,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_timeline_activity` — Create a new timeline activity record
 - `update_timeline_activity` — Update an existing timeline activity record
 - `update_timeline_activities` — Bulk update timeline activity records by IDs
-- `delete_timeline_activity_by_id` — Delete a timeline activity by ID (hard destroy)
-- `delete_timeline_activities` — Bulk delete timeline activities by IDs (hard destroy)
+- `delete_timeline_activity_by_id` — Delete a timeline activity by ID
+- `delete_timeline_activities` — Bulk delete timeline activities by IDs
 
 ### 📅 CalendarEvent (7 tools)
 
@@ -193,8 +191,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_calendar_event` — Create a new calendar event record
 - `update_calendar_event` — Update an existing calendar event record
 - `update_calendar_events` — Bulk update calendar event records by IDs
-- `delete_calendar_event_by_id` — Delete a calendar event by ID (hard destroy)
-- `delete_calendar_events` — Bulk delete calendar events by IDs (hard destroy)
+- `delete_calendar_event_by_id` — Delete a calendar event by ID
+- `delete_calendar_events` — Bulk delete calendar events by IDs
 
 ### 🙋 CalendarEventParticipant (7 tools)
 
@@ -203,8 +201,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_calendar_event_participant` — Create a new calendar event participant record
 - `update_calendar_event_participant` — Update an existing calendar event participant record
 - `update_calendar_event_participants` — Bulk update calendar event participant records by IDs
-- `delete_calendar_event_participant_by_id` — Delete a calendar event participant by ID (hard destroy)
-- `delete_calendar_event_participants` — Bulk delete calendar event participants by IDs (hard destroy)
+- `delete_calendar_event_participant_by_id` — Delete a calendar event participant by ID
+- `delete_calendar_event_participants` — Bulk delete calendar event participants by IDs
 
 ### ✉️ Message (7 tools)
 
@@ -213,8 +211,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_message` — Create a new message record
 - `update_message` — Update an existing message record
 - `update_messages` — Bulk update message records by IDs
-- `delete_message_by_id` — Delete a message by ID (hard destroy)
-- `delete_messages` — Bulk delete messages by IDs (hard destroy)
+- `delete_message_by_id` — Delete a message by ID
+- `delete_messages` — Bulk delete messages by IDs
 
 ### 📬 MessageThread (7 tools)
 
@@ -223,8 +221,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_message_thread` — Create a new message thread record
 - `update_message_thread` — Update an existing message thread record
 - `update_message_threads` — Bulk update message thread records by IDs
-- `delete_message_thread_by_id` — Delete a message thread by ID (hard destroy)
-- `delete_message_threads` — Bulk delete message threads by IDs (hard destroy)
+- `delete_message_thread_by_id` — Delete a message thread by ID
+- `delete_message_threads` — Bulk delete message threads by IDs
 
 ### 🗣️ MessageParticipant (7 tools)
 
@@ -233,8 +231,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_message_participant` — Create a new message participant record
 - `update_message_participant` — Update an existing message participant record
 - `update_message_participants` — Bulk update message participant records by IDs
-- `delete_message_participant_by_id` — Delete a message participant by ID (hard destroy)
-- `delete_message_participants` — Bulk delete message participants by IDs (hard destroy)
+- `delete_message_participant_by_id` — Delete a message participant by ID
+- `delete_message_participants` — Bulk delete message participants by IDs
 
 ### 🎙️ CallRecording (7 tools)
 
@@ -243,8 +241,8 @@ The server implements 117 MCP tools organized into the following categories:
 - `create_call_recording` — Create a new call recording record
 - `update_call_recording` — Update an existing call recording record
 - `update_call_recordings` — Bulk update call recording records by IDs
-- `delete_call_recording_by_id` — Delete a call recording by ID (hard destroy)
-- `delete_call_recordings` — Bulk delete call recordings by IDs (hard destroy)
+- `delete_call_recording_by_id` — Delete a call recording by ID
+- `delete_call_recordings` — Bulk delete call recordings by IDs
 
 ### 🔧 Domain-Specific Tools (1 tool)
 

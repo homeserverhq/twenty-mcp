@@ -282,7 +282,7 @@ RESOURCE_TESTS = [
 
     # favorite
     ("favorite", "create_favorite",
-     {"viewId": "03436af6-2998-4af1-8bc2-f994a7aada29"},
+     {},
      "get_all_favorites", "get_favorite_by_id",
      "update_favorite", {},
      "update_many_favorites", "delete_favorite_by_id", "delete_many_favorites"),
@@ -296,22 +296,21 @@ RESOURCE_TESTS = [
 
     # workflowVersion
     ("workflowVersion", "create_workflowVersion",
-     {"workflowId": "8b213cac-a68b-4ffe-817a-3ec994e9932d"},
+     {},
      "get_all_workflowVersions", "get_workflowVersion_by_id",
      "update_workflowVersion", {"status": "ACTIVE"},
      "update_many_workflowVersions", "delete_workflowVersion_by_id", "delete_many_workflowVersions"),
 
     # workflowRun
     ("workflowRun", "create_workflowRun",
-     {"workflowId": "8b213cac-a68b-4ffe-817a-3ec994e9932d", "workflowVersionId": "8b213cac-a68b-4ffe-817a-3ec994e9932d", "status": "RUNNING"},
+     {"status": "RUNNING"},
      "get_all_workflowRuns", "get_workflowRun_by_id",
      "update_workflowRun", {"status": "COMPLETED"},
      "update_many_workflowRuns", "delete_workflowRun_by_id", "delete_many_workflowRuns"),
 
     # workflowAutomatedTrigger
     ("workflowAutomatedTrigger", "create_workflowAutomatedTrigger",
-     {"type": "CRON", "workflowId": "8b213cac-a68b-4ffe-817a-3ec994e9932d",
-      "settings": {"cron": "0 0 * * *"}},
+     {"type": "CRON", "settings": {"cron": "0 0 * * *"}},
      "get_all_workflowAutomatedTriggers", "get_workflowAutomatedTrigger_by_id",
      "update_workflowAutomatedTrigger", {"type": "CRON"},
      "update_many_workflowAutomatedTriggers", "delete_workflowAutomatedTrigger_by_id", "delete_many_workflowAutomatedTriggers"),
@@ -330,14 +329,14 @@ RESOURCE_TESTS = [
      "update_calendarChannel", {"isContactAutoCreationEnabled": False},
      "update_many_calendarChannels", "delete_calendarChannel_by_id", "delete_many_calendarChannels"),
 
-    # calendarChannelEventAssociation (no hardcoded IDs - injected from store)
+    # calendarChannelEventAssociation (injected from store)
     ("calendarChannelEventAssociation", "create_calendarChannelEventAssociation",
      {},
      "get_all_calendarChannelEventAssociations", "get_calendarChannelEventAssociation_by_id",
      "update_calendarChannelEventAssociation", {},
      "update_many_calendarChannelEventAssociations", "delete_calendarChannelEventAssociation_by_id", "delete_many_calendarChannelEventAssociations"),
 
-    # calendarEventParticipant (no hardcoded IDs - injected from store)
+    # calendarEventParticipant (injected from store)
     ("calendarEventParticipant", "create_calendarEventParticipant",
      {},
      "get_all_calendarEventParticipants", "get_calendarEventParticipant_by_id",
@@ -365,7 +364,7 @@ RESOURCE_TESTS = [
      "update_messageThread", {},
      "update_many_messageThreads", "delete_messageThread_by_id", "delete_many_messageThreads"),
 
-    # messageParticipant (no hardcoded IDs - injected from store)
+    # messageParticipant (injected from store)
     ("messageParticipant", "create_messageParticipant",
      {},
      "get_all_messageParticipants", "get_messageParticipant_by_id",
@@ -379,21 +378,21 @@ RESOURCE_TESTS = [
      "update_messageFolder", {"name": make_name("folder-updated")},
      "update_many_messageFolders", "delete_messageFolder_by_id", "delete_many_messageFolders"),
 
-    # messageChannelMessageAssociation (no hardcoded IDs - injected from store)
+    # messageChannelMessageAssociation (injected from store)
     ("messageChannelMessageAssociation", "create_messageChannelMessageAssociation",
      {},
      "get_all_messageChannelMessageAssociations", "get_messageChannelMessageAssociation_by_id",
      "update_messageChannelMessageAssociation", {},
      "update_many_messageChannelMessageAssociations", "delete_messageChannelMessageAssociation_by_id", "delete_many_messageChannelMessageAssociations"),
 
-    # noteTarget (no hardcoded noteId - injected from store)
+    # noteTarget (injected from store)
     ("noteTarget", "create_noteTarget",
      {},
      "get_all_noteTargets", "get_noteTarget_by_id",
      "update_noteTarget", {},
      "update_many_noteTargets", "delete_noteTarget_by_id", "delete_many_noteTargets"),
 
-    # taskTarget (no hardcoded taskId - injected from store)
+    # taskTarget (injected from store)
     ("taskTarget", "create_taskTarget",
      {},
      "get_all_taskTargets", "get_taskTarget_by_id",
@@ -502,6 +501,21 @@ async def main():
                     params["messageId"] = mid
                 if pid:
                     params["personId"] = pid
+            elif label == "workflowVersion":
+                wid = pick_id("create_workflow")
+                if wid:
+                    params["workflowId"] = wid
+            elif label == "workflowRun":
+                wid = pick_id("create_workflow")
+                wvid = pick_id("create_workflowVersion")
+                if wid:
+                    params["workflowId"] = wid
+                if wvid:
+                    params["workflowVersionId"] = wvid
+            elif label == "workflowAutomatedTrigger":
+                wid = pick_id("create_workflow")
+                if wid:
+                    params["workflowId"] = wid
 
             ok = await run_test_with_store(session, f"C1 create_{key}", create_tool, params, store_key=f"create_{key}")
             cid = pick_id(f"create_{key}") if ok else None
@@ -528,7 +542,9 @@ async def main():
                     {"id": cid}, store_key=f"get_{key}")
 
         # Phase 3B: Update, delete all objects (C3-C8 for all)
-        for entry in RESOURCE_TESTS:
+        # Process in REVERSE order so dependent objects are handled before their parents
+        # This prevents cascade deletion issues (e.g., calendarChannelEventAssociation before calendarChannel)
+        for entry in reversed(RESOURCE_TESTS):
             label, create_tool, create_params, _, get_tool, update_tool, update_params, update_many_tool, delete_tool, delete_many_tool = entry
             key = label.lower()
 

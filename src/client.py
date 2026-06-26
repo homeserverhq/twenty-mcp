@@ -16,7 +16,7 @@ COMMON_FIELDS: dict[str, set[str]] = {
     "task":                       {"id", "title", "bodyV2", "status", "dueAt"},
     "workflow":                   {"id", "name", "statuses", "lastPublishedVersionId"},
     "workspaceMember":            {"id", "name", "userEmail", "colorScheme"},
-    "attachment":                 {"id", "name", "fullPath", "type", "createdAt"},
+    "attachment":                 {"id", "name", "fullPath", "type", "file", "targetCompanyId", "createdAt"},
     "noteTarget":                 {"id", "noteId", "targetPersonId", "targetCompanyId", "targetOpportunityId"},
     "taskTarget":                 {"id", "taskId", "targetPersonId", "targetCompanyId", "targetOpportunityId"},
     "timelineActivity":           {"id", "name", "happensAt", "workspaceMemberId", "linkedRecordCachedName"},

@@ -263,6 +263,13 @@ class UpdateWorkspaceMemberParam(BaseModel):
 class CreateAttachmentParam(BaseModel):
     name: str
     fullPath: str = ""
+    targetTaskId: str = ""
+    targetNoteId: str = ""
+    targetPersonId: str = ""
+    targetCompanyId: str = ""
+    targetOpportunityId: str = ""
+    targetDashboardId: str = ""
+    targetWorkflowId: str = ""
 
 
 class UpdateAttachmentParam(BaseModel):
@@ -1456,6 +1463,13 @@ async def get_attachment_by_id(id: str, include_all_fields: bool = False, ctx: C
 async def create_attachment(
     name: str,
     fullPath: str = "",
+    targetTaskId: str = "",
+    targetNoteId: str = "",
+    targetPersonId: str = "",
+    targetCompanyId: str = "",
+    targetOpportunityId: str = "",
+    targetDashboardId: str = "",
+    targetWorkflowId: str = "",
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new attachment record.
@@ -1463,8 +1477,21 @@ async def create_attachment(
     Args:
         name: Name of the attachment file (required).
         fullPath: Full file path. (optional)
+        targetTaskId: ID of the associated task. (optional)
+        targetNoteId: ID of the associated note. (optional)
+        targetPersonId: ID of the associated person. (optional)
+        targetCompanyId: ID of the associated company. (optional)
+        targetOpportunityId: ID of the associated opportunity. (optional)
+        targetDashboardId: ID of the associated dashboard. (optional)
+        targetWorkflowId: ID of the associated workflow. (optional)
     """
-    params = CreateAttachmentParam(name=name, fullPath=fullPath)
+    params = CreateAttachmentParam(
+        name=name, fullPath=fullPath,
+        targetTaskId=targetTaskId, targetNoteId=targetNoteId,
+        targetPersonId=targetPersonId, targetCompanyId=targetCompanyId,
+        targetOpportunityId=targetOpportunityId, targetDashboardId=targetDashboardId,
+        targetWorkflowId=targetWorkflowId,
+    )
     payload = _build_payload(params)
     return await get_client().create_attachment(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE

@@ -2993,9 +2993,9 @@ async def check_server_status(ctx: Context = None) -> dict[str, Any]:
 # Entry Point
 # =============================================================================
 def main():
-    if not os.getenv("Twenty_BASE_URL"):
-        print("ERROR: Twenty_BASE_URL environment variable is required", file=sys.stderr)
-        print("Example: export Twenty_BASE_URL=http://twenty-app:3000/rest/", file=sys.stderr)
+    if not os.getenv("TWENTY_BASE_URL"):
+        print("ERROR: TWENTY_BASE_URL environment variable is required", file=sys.stderr)
+        print("Example: export TWENTY_BASE_URL=http://twenty-app:3000", file=sys.stderr)
         sys.exit(1)
 
     port_env = os.getenv("MCP_SERVER_PORT")

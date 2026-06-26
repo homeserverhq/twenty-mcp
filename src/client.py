@@ -52,10 +52,10 @@ def _normalize_datetime(value: str) -> str:
 
 class TwentyClient:
     def __init__(self, base_url: Optional[str] = None):
-        self.base_url = (base_url or os.getenv("Twenty_BASE_URL", "")).rstrip("/")
+        self.base_url = (base_url or os.getenv("TWENTY_BASE_URL", "")).rstrip("/")
         if not self.base_url:
             raise ValueError(
-                "Twenty BASE_URL required. Set Twenty_BASE_URL env var "
+                "Twenty BASE_URL required. Set TWENTY_BASE_URL env var "
                 "or pass base_url."
             )
 

@@ -27,7 +27,7 @@ with full CRUD, search, and relationship management.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `Twenty_BASE_URL` | Yes | Docker-internal URL of the Twenty API (e.g. `http://twenty-app:3000`). |
+| `TWENTY_BASE_URL` | Yes | Docker-internal URL of the Twenty API (e.g. `http://twenty-app:3000`). |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on |
 | `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is silently forced to `False` for aggregate list operations. |
 
@@ -40,7 +40,7 @@ with full CRUD, search, and relationship management.
     ```
 3. Run the server:
     ```bash
-    export Twenty_BASE_URL=http://localhost:8279
+    export TWENTY_BASE_URL=http://localhost:8279
     export MCP_SERVER_PORT=80
     python -m src.main
     ```
@@ -52,7 +52,7 @@ Build and run the server using Docker:
 ```bash
 docker build -t twenty-mcp:latest .
 docker run -d --name twenty-mcp \
-    -e Twenty_BASE_URL="http://twenty-app:3000" \
+    -e TWENTY_BASE_URL="http://twenty-app:3000" \
     -e MCP_SERVER_PORT=80 \
     -e ALLOW_ALL_AGGREGATE=false \
     twenty-mcp:latest

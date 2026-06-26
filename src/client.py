@@ -447,13 +447,6 @@ class TwentyClient:
             data = _filter_fields(data, COMMON_FIELDS["workspaceMember"])
         return data
 
-    async def delete_workspace_member_by_id(self, workspace_member_id: str, api_key: Optional[str] = None) -> Any:
-        return await self.delete(f"/rest/workspaceMembers/{workspace_member_id}", api_key)
-
-    async def delete_workspace_members(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/workspaceMembers?filter=id[in]:{id_list}", api_key)
-
     # =========================================================================
     # Attachment
     # =========================================================================

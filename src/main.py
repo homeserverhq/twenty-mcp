@@ -1420,28 +1420,6 @@ async def update_workspace_members(
     )
 
 
-@mcp.tool()
-async def delete_workspace_member_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
-    """Delete a workspace member by their ID (hard destroy).
-
-    Args:
-        id: The unique ID of the workspace member to delete (required).
-    """
-    await get_client().delete_workspace_member_by_id(id, get_user_token())
-    return {"deleted": True, "id": id}
-
-
-@mcp.tool()
-async def delete_workspace_members(ids: list[str], ctx: Context = None) -> dict[str, Any]:
-    """Bulk delete workspace members by IDs (hard destroy).
-
-    Args:
-        ids: List of workspace member IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
-    """
-    await get_client().delete_workspace_members(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
-
-
 # =============================================================================
 # Attachment Tools
 # =============================================================================

@@ -398,7 +398,14 @@ RESOURCE_TESTS = [
      lambda s, r: {"stage": "SCREENING"},
      "delete_opportunity_by_id", "opportunity"),
 
-    # 4. note — standalone root
+    # 4. workspaceMember — no create (seed data only), no delete (can't destroy last admin)
+    ("workspaceMember", None, None,
+     "list_workspace_members", "get_workspace_member_by_id",
+     "update_workspace_member",
+     lambda s, r: {"colorScheme": "Dark"},
+     None, "workspaceMember"),
+
+    # 5. note — standalone root
     ("note", "create_note",
      lambda s, r: {"title": f"t{r}-Note"},
      "list_notes", "get_note_by_id",
@@ -555,12 +562,44 @@ async def main():
             label = entry[0]
             create_tool = entry[1]
             create_params_fn = entry[2]
+            list_tool = entry[3]
             store_key = entry[8]
 
-            create_params = create_params_fn(store, rid)
-            await run_test_capture_id(
-                session, f"C1 create_{label}", create_tool, create_params, store_key
-            )
+            if create_tool and create_params_fn:
+                create_params = create_params_fn(store, rid)
+                await run_test_capture_id(
+                    session, f"C1 create_{label}", create_tool, create_params, store_key
+                )
+            else:
+                # No create tool (e.g. workspaceMember with seed data only).
+                # Use list to find an existing record and store its ID.
+                log(f"  (no create for {label} — using list to find seed record)")
+                result = await session.call_tool(list_tool, {})
+                err = is_error(result)
+                if err:
+                    store[store_key] = None
+                    log(f"  FAIL C1 create_{label} (seed lookup): {err}")
+                    results.append({
+                        "label": f"C1 create_{label}", "tool": list_tool,
+                        "status": "FAILED", "reason": f"Seed lookup failed: {err}",
+                    })
+                else:
+                    data = extract_content(result)
+                    items = _get_list_items(data)
+                    if items and isinstance(items[0], dict) and items[0].get("id"):
+                        store[store_key] = items[0]
+                        log(f"  PASS C1 resolve_{label} (seed id={items[0]['id'][:8]}...)")
+                        results.append({
+                            "label": f"C1 resolve_{label}", "tool": list_tool,
+                            "status": "PASSED", "data": items[0],
+                        })
+                    else:
+                        store[store_key] = None
+                        log(f"  FAIL C1 create_{label} (no seed records found)")
+                        results.append({
+                            "label": f"C1 create_{label}", "tool": list_tool,
+                            "status": "FAILED", "reason": "No seed records found in list response",
+                        })
 
         log("  Phase 3b — C2 gets + C3 updates (forward order)")
         for entry in RESOURCE_TESTS:
@@ -596,13 +635,16 @@ async def main():
             entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
 
             if entity_id is None:
-                results.append({"label": f"C4 delete_{label}", "tool": delete_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
+                results.append({"label": f"C4 delete_{label}", "tool": delete_tool or get_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
                 results.append({"label": f"C5 verify_delete_{label}", "tool": get_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
                 continue
 
             get_params = {"id": entity_id}
-            await run_test(session, f"C4 delete_{label}", delete_tool, {"id": entity_id})
-            await run_verify_delete(session, f"C5 verify_delete_{label}", get_tool, get_params)
+            if delete_tool:
+                await run_test(session, f"C4 delete_{label}", delete_tool, {"id": entity_id})
+                await run_verify_delete(session, f"C5 verify_delete_{label}", get_tool, get_params)
+            else:
+                log(f"  N/A C4 delete_{label}: no delete tool defined")
 
         # Phase 4: Bulk update + bulk delete for all remaining resources
         log("\n=== Phase 4: Bulk Update & Delete ===")
@@ -652,7 +694,7 @@ async def main():
                 log(f"  N/A bulk_{label}: no bulk tools defined (removed)")
                 continue
             bulk_update_tool = BULK_UPDATE_TOOLS[label]
-            bulk_delete_tool = BULK_DELETE_TOOLS[label]
+            bulk_delete_tool = BULK_DELETE_TOOLS.get(label)
 
             entity_data = store.get(store_key)
             entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
@@ -665,7 +707,10 @@ async def main():
             upd = update_params_fn(store, rid)
             upd["ids"] = [entity_id, entity_id]
             await run_test(session, f"bulk_update_{label}", bulk_update_tool, upd)
-            await run_test(session, f"bulk_delete_{label}", bulk_delete_tool, {"ids": [entity_id, entity_id]})
+            if bulk_delete_tool:
+                await run_test(session, f"bulk_delete_{label}", bulk_delete_tool, {"ids": [entity_id, entity_id]})
+            else:
+                log(f"  N/A bulk_delete_{label}: no bulk delete tool defined")
 
         # Phase 5: Leak Detection
         log("\n=== Phase 5: Leak Detection ===")

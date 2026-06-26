@@ -373,7 +373,7 @@ RESOURCE_TESTS = [
     ("company", "create_company",
      lambda s, r: {
          "name": f"t{r}-Company",
-         "domainName": json.dumps({"primaryLinkUrl": f"https://t{r}-testco.com", "primaryLinkLabel": ""}),
+         "domainName": {"primaryLinkUrl": f"https://t{r}-testco.com", "primaryLinkLabel": ""},
      },
      "list_companies", "get_company_by_id",
      "update_company",
@@ -383,8 +383,8 @@ RESOURCE_TESTS = [
     # 2. person — standalone root (optional companyId)
     ("person", "create_person",
      lambda s, r: {
-         "name": json.dumps({"firstName": f"t{r}", "lastName": "Person"}),
-         "emails": json.dumps({"primaryEmail": f"t{r}-person@example.com"}),
+         "name": {"firstName": f"t{r}", "lastName": "Person"},
+         "emails": {"primaryEmail": f"t{r}-person@example.com"},
      },
      "list_people", "get_person_by_id",
      "update_person",
@@ -417,7 +417,7 @@ RESOURCE_TESTS = [
 
     # 6. workflow — standalone root
     ("workflow", "create_workflow",
-     lambda s, r: {"name": f"t{r}-Workflow", "statuses": '["ACTIVE"]'},
+     lambda s, r: {"name": f"t{r}-Workflow", "statuses": ["ACTIVE"]},
      "list_workflows", "get_workflow_by_id",
      "update_workflow",
      lambda s, r: {},

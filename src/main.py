@@ -48,25 +48,98 @@ def get_user_token() -> Optional[str]:
 
 
 # =============================================================================
+# Structured JSON Models — used as tool parameters for clarity
+# =============================================================================
+
+
+class FullNameModel(BaseModel):
+    """First and last name for a person or workspace member."""
+
+    firstName: str  # Given name (required).
+    lastName: str  # Family name (required).
+
+
+class LinkModel(BaseModel):
+    """A URL-based link with an optional label. Used for domainName, linkedinLink, conferenceLink."""
+
+    primaryLinkUrl: str  # The URL string (required).
+    primaryLinkLabel: str = ""  # Optional display label for the link.
+
+
+class AddressModel(BaseModel):
+    """Physical address with optional lat/lng coordinates."""
+
+    addressStreet1: str = ""
+    addressStreet2: str = ""
+    addressCity: str = ""
+    addressState: str = ""
+    addressCountry: str = ""
+    addressPostcode: str = ""
+    addressLat: float | None = None
+    addressLng: float | None = None
+
+
+class MoneyModel(BaseModel):
+    """Monetary value with currency. Used for amount, annualRevenue."""
+
+    amountMicros: int = 0  # Amount in micro-units (1 USD = 1000000 micro).
+    currencyCode: str = "USD"  # ISO 4217 currency code.
+
+
+class EmailsModel(BaseModel):
+    """Email addresses with optional additional emails."""
+
+    primaryEmail: str  # Primary email address (required).
+    additionalEmails: list[str] = []  # Additional email addresses.
+
+
+class PhonesModel(BaseModel):
+    """Primary phone number with country code. No additional phones exposed."""
+
+    primaryPhoneNumber: str = ""
+    primaryPhoneCountryCode: str = ""
+
+
+def _wrap_markdown(markdown: str | None) -> dict | None:
+    """Wrap a markdown string into a bodyV2 JSON structure for the backend."""
+    if markdown:
+        return {"markdown": markdown}
+    return None
+
+
+class LocationModel(BaseModel):
+    """Calendar event location components."""
+
+    city: str = ""
+    region: str = ""
+    country: str = ""
+    address: str = ""
+
+
+class ConferenceSolutionModel(BaseModel):
+    """Video conference solution details."""
+
+    name: str = ""
+    icon: str = ""
+    meetingUrl: str | None = None
+    dialData: str | None = None
+
+
+# =============================================================================
 # Pydantic Contract Models — Company
 # =============================================================================
 class CreateCompanyParam(BaseModel):
     name: str
-    domainName: str = ""
-    address: str = ""
-    linkedinLink: str = ""
-    annualRevenue: str = ""
-    accountOwnerId: str = ""
-    position: int = 0
+    domainName: LinkModel | None = None
 
 
 class UpdateCompanyParam(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
-    domainName: Optional[str] = None
-    address: Optional[str] = None
-    linkedinLink: Optional[str] = None
-    annualRevenue: Optional[str] = None
+    domainName: LinkModel | None = None
+    address: AddressModel | None = None
+    linkedinLink: LinkModel | None = None
+    annualRevenue: MoneyModel | None = None
     accountOwnerId: Optional[str] = None
     position: Optional[int] = None
 
@@ -75,23 +148,18 @@ class UpdateCompanyParam(BaseModel):
 # Pydantic Contract Models — Person
 # =============================================================================
 class CreatePersonParam(BaseModel):
-    name: str
-    emails: str
-    phones: str = ""
+    name: FullNameModel
+    emails: EmailsModel
     jobTitle: str = ""
-    linkedinLink: str = ""
-    companyId: str = ""
-    avatarUrl: str = ""
-    position: int = 0
 
 
 class UpdatePersonParam(BaseModel):
     id: Optional[str] = None
-    name: Optional[str] = None
-    emails: Optional[str] = None
-    phones: Optional[str] = None
+    name: FullNameModel | None = None
+    emails: EmailsModel | None = None
+    phones: PhonesModel | None = None
     jobTitle: Optional[str] = None
-    linkedinLink: Optional[str] = None
+    linkedinLink: LinkModel | None = None
     companyId: Optional[str] = None
     avatarUrl: Optional[str] = None
     position: Optional[int] = None
@@ -102,20 +170,16 @@ class UpdatePersonParam(BaseModel):
 # =============================================================================
 class CreateOpportunityParam(BaseModel):
     name: str
-    amount: str = ""
-    closeDate: str = ""
+    amount: MoneyModel | None = None
+    closeDate: dict | None = None
     stage: str
-    companyId: str = ""
-    pointOfContactId: str = ""
-    ownerId: str = ""
-    position: int = 0
 
 
 class UpdateOpportunityParam(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
-    amount: Optional[str] = None
-    closeDate: Optional[str] = None
+    amount: MoneyModel | None = None
+    closeDate: dict | None = None
     stage: Optional[str] = None
     companyId: Optional[str] = None
     pointOfContactId: Optional[str] = None
@@ -128,14 +192,13 @@ class UpdateOpportunityParam(BaseModel):
 # =============================================================================
 class CreateNoteParam(BaseModel):
     title: str
-    bodyV2: str = ""
-    position: int = 0
+    bodyV2: dict | None = None
 
 
 class UpdateNoteParam(BaseModel):
     id: Optional[str] = None
     title: Optional[str] = None
-    bodyV2: Optional[str] = None
+    bodyV2: dict | None = None
     position: Optional[int] = None
 
 
@@ -144,17 +207,16 @@ class UpdateNoteParam(BaseModel):
 # =============================================================================
 class CreateTaskParam(BaseModel):
     title: str
-    bodyV2: str = ""
+    bodyV2: dict | None = None
     status: str
     dueAt: str = ""
     assigneeId: str = ""
-    position: int = 0
 
 
 class UpdateTaskParam(BaseModel):
     id: Optional[str] = None
     title: Optional[str] = None
-    bodyV2: Optional[str] = None
+    bodyV2: dict | None = None
     status: Optional[str] = None
     dueAt: Optional[str] = None
     assigneeId: Optional[str] = None
@@ -166,15 +228,13 @@ class UpdateTaskParam(BaseModel):
 # =============================================================================
 class CreateWorkflowParam(BaseModel):
     name: str
-    statuses: str
-    lastPublishedVersionId: str = ""
-    position: int = 0
+    statuses: list[str]
 
 
 class UpdateWorkflowParam(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
-    statuses: Optional[str] = None
+    statuses: Optional[list[str]] = None
     lastPublishedVersionId: Optional[str] = None
     position: Optional[int] = None
 
@@ -184,7 +244,7 @@ class UpdateWorkflowParam(BaseModel):
 # =============================================================================
 class UpdateWorkspaceMemberParam(BaseModel):
     id: Optional[str] = None
-    name: Optional[str] = None
+    name: FullNameModel | None = None
     colorScheme: Optional[str] = None
     locale: Optional[str] = None
     avatarUrl: Optional[str] = None
@@ -202,16 +262,7 @@ class UpdateWorkspaceMemberParam(BaseModel):
 # =============================================================================
 class CreateAttachmentParam(BaseModel):
     name: str
-    fullPath: str
-    fileCategory: str = ""
-    authorId: str = ""
-    targetTaskId: str = ""
-    targetNoteId: str = ""
-    targetPersonId: str = ""
-    targetCompanyId: str = ""
-    targetOpportunityId: str = ""
-    targetDashboardId: str = ""
-    targetWorkflowId: str = ""
+    fullPath: str = ""
 
 
 class UpdateAttachmentParam(BaseModel):
@@ -272,22 +323,6 @@ class UpdateTaskTargetParam(BaseModel):
 class CreateTimelineActivityParam(BaseModel):
     name: str
     happensAt: str
-    workspaceMemberId: str = ""
-    linkedRecordId: str = ""
-    linkedObjectMetadataId: str = ""
-    targetPersonId: str = ""
-    targetCompanyId: str = ""
-    targetOpportunityId: str = ""
-    targetNoteId: str = ""
-    targetTaskId: str = ""
-    targetWorkflowId: str = ""
-    targetWorkflowVersionId: str = ""
-    targetWorkflowRunId: str = ""
-    targetDashboardId: str = ""
-    targetMessageListId: str = ""
-    targetMessageCampaignId: str = ""
-    properties: str = "{}"
-    position: int = 0
 
 
 class UpdateTimelineActivityParam(BaseModel):
@@ -317,29 +352,27 @@ class UpdateTimelineActivityParam(BaseModel):
 # =============================================================================
 class CreateCalendarEventParam(BaseModel):
     title: str
-    isCanceled: bool = False
-    isFullDay: bool = False
     startsAt: str
     endsAt: str
     description: str = ""
-    location: str = ""
-    iCalUid: str = ""
-    conferenceSolution: str = ""
-    conferenceLink: str = "{}"
+    location: LocationModel | None = None
+    conferenceSolution: ConferenceSolutionModel | None = None
+    conferenceLink: LinkModel | None = None
 
 
 class UpdateCalendarEventParam(BaseModel):
     id: Optional[str] = None
     title: Optional[str] = None
-    isCanceled: Optional[bool] = None
-    isFullDay: Optional[bool] = None
+    description: Optional[str] = None
     startsAt: Optional[str] = None
     endsAt: Optional[str] = None
-    description: Optional[str] = None
-    location: Optional[str] = None
+    isCanceled: Optional[bool] = None
+    isFullDay: Optional[bool] = None
+    location: LocationModel | None = None
+    conferenceSolution: ConferenceSolutionModel | None = None
+    conferenceLink: LinkModel | None = None
     iCalUid: Optional[str] = None
-    conferenceSolution: Optional[str] = None
-    conferenceLink: Optional[str] = None
+    position: Optional[int] = None
 
 
 # =============================================================================
@@ -370,13 +403,7 @@ class UpdateCalendarEventParticipantParam(BaseModel):
 # Pydantic Contract Models — Message
 # =============================================================================
 class CreateMessageParam(BaseModel):
-    headerMessageId: str = ""
     subject: str
-    text: str = ""
-    receivedAt: str = ""
-    messageThreadId: str = ""
-    messageCampaignId: str = ""
-    deliveryStatus: str = ""
 
 
 class UpdateMessageParam(BaseModel):
@@ -432,13 +459,6 @@ class UpdateMessageParticipantParam(BaseModel):
 class CreateCallRecordingParam(BaseModel):
     title: str
     status: str
-    recordingRequestStatus: str = ""
-    applicationId: str = ""
-    externalBotId: str = ""
-    externalRecordingId: str = ""
-    startedAt: str = ""
-    endedAt: str = ""
-    calendarEventId: str = ""
 
 
 class UpdateCallRecordingParam(BaseModel):
@@ -517,30 +537,16 @@ async def get_company_by_id(id: str, include_all_fields: bool = False, ctx: Cont
 @mcp.tool()
 async def create_company(
     name: str,
-    domainName: str = "",
-    address: str = "",
-    linkedinLink: str = "",
-    annualRevenue: str = "",
-    accountOwnerId: str = "",
-    position: int = 0,
+    domainName: LinkModel | None = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new company record.
 
     Args:
         name: Name of the company (required).
-        domainName: JSON string with primaryLinkUrl and primaryLinkLabel.
-        address: JSON string with address fields.
-        linkedinLink: JSON string with LinkedIn URL details.
-        annualRevenue: JSON string with amountMicros and currencyCode.
-        accountOwnerId: ID of the workspace member who owns this account.
-        position: Display sort order.
+        domainName: Domain name link with primaryLinkUrl and optional primaryLinkLabel.
     """
-    params = CreateCompanyParam(
-        name=name, domainName=domainName, address=address,
-        linkedinLink=linkedinLink, annualRevenue=annualRevenue,
-        accountOwnerId=accountOwnerId, position=position,
-    )
+    params = CreateCompanyParam(name=name, domainName=domainName)
     payload = _build_payload(params)
     return await get_client().create_company(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -551,10 +557,10 @@ async def create_company(
 async def update_company(
     id: str,
     name: str = None,
-    domainName: str = None,
-    address: str = None,
-    linkedinLink: str = None,
-    annualRevenue: str = None,
+    domainName: LinkModel | None = None,
+    address: AddressModel | None = None,
+    linkedinLink: LinkModel | None = None,
+    annualRevenue: MoneyModel | None = None,
     accountOwnerId: str = None,
     position: int = None,
     ctx: Context = None
@@ -564,10 +570,10 @@ async def update_company(
     Args:
         id: The unique ID of the company to update (required).
         name: Updated name of the company.
-        domainName: Updated domain name as JSON string.
-        address: Updated address as JSON string.
-        linkedinLink: Updated LinkedIn link as JSON string.
-        annualRevenue: Updated annual revenue as JSON string.
+        domainName: Updated domain name link with primaryLinkUrl and optional primaryLinkLabel.
+        address: Updated physical address with street/city/state/country/postcode/lat/lng.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
+        annualRevenue: Updated annual revenue with amountMicros and currencyCode.
         accountOwnerId: Updated account owner workspace member ID.
         position: Updated display sort order.
     """
@@ -586,10 +592,10 @@ async def update_company(
 async def update_companies(
     ids: list[str],
     name: str = None,
-    domainName: str = None,
-    address: str = None,
-    linkedinLink: str = None,
-    annualRevenue: str = None,
+    domainName: LinkModel | None = None,
+    address: AddressModel | None = None,
+    linkedinLink: LinkModel | None = None,
+    annualRevenue: MoneyModel | None = None,
     accountOwnerId: str = None,
     position: int = None,
     ctx: Context = None
@@ -599,10 +605,10 @@ async def update_companies(
     Args:
         ids: List of company IDs to update (required).
         name: Updated name for all selected companies.
-        domainName: Updated domain name as JSON string.
-        address: Updated address as JSON string.
-        linkedinLink: Updated LinkedIn link as JSON string.
-        annualRevenue: Updated annual revenue as JSON string.
+        domainName: Updated domain name link with primaryLinkUrl and optional primaryLinkLabel.
+        address: Updated physical address with street/city/state/country/postcode/lat/lng.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
+        annualRevenue: Updated annual revenue with amountMicros and currencyCode.
         accountOwnerId: Updated account owner workspace member ID.
         position: Updated display sort order.
     """
@@ -673,32 +679,19 @@ async def get_person_by_id(id: str, include_all_fields: bool = False, ctx: Conte
 
 @mcp.tool()
 async def create_person(
-    name: str,
-    emails: str,
-    phones: str = "",
+    name: FullNameModel,
+    emails: EmailsModel,
     jobTitle: str = "",
-    linkedinLink: str = "",
-    companyId: str = "",
-    avatarUrl: str = "",
-    position: int = 0,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new person record.
 
     Args:
-        name: JSON string with firstName and lastName (required).
-        emails: JSON string with primaryEmail and additionalEmails (required).
-        phones: JSON string with phone fields.
+        name: Full name with firstName and lastName (required).
+        emails: Email addresses with primaryEmail and optional additionalEmails (required).
         jobTitle: Job title of the person.
-        linkedinLink: JSON string with LinkedIn URL details.
-        companyId: ID of the associated company.
-        avatarUrl: URL to the person's avatar image.
-        position: Display sort order.
     """
-    params = CreatePersonParam(
-        name=name, emails=emails, phones=phones, jobTitle=jobTitle,
-        linkedinLink=linkedinLink, companyId=companyId, avatarUrl=avatarUrl, position=position,
-    )
+    params = CreatePersonParam(name=name, emails=emails, jobTitle=jobTitle)
     payload = _build_payload(params)
     return await get_client().create_person(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -708,11 +701,11 @@ async def create_person(
 @mcp.tool()
 async def update_person(
     id: str,
-    name: str = None,
-    emails: str = None,
-    phones: str = None,
+    name: FullNameModel | None = None,
+    emails: EmailsModel | None = None,
+    phones: PhonesModel | None = None,
     jobTitle: str = None,
-    linkedinLink: str = None,
+    linkedinLink: LinkModel | None = None,
     companyId: str = None,
     avatarUrl: str = None,
     position: int = None,
@@ -722,11 +715,11 @@ async def update_person(
 
     Args:
         id: The unique ID of the person to update (required).
-        name: Updated name as JSON string.
-        emails: Updated emails as JSON string.
-        phones: Updated phones as JSON string.
+        name: Updated full name with firstName and lastName.
+        emails: Updated email addresses with primaryEmail and optional additionalEmails.
+        phones: Updated phone with primaryPhoneNumber and primaryPhoneCountryCode.
         jobTitle: Updated job title.
-        linkedinLink: Updated LinkedIn link as JSON string.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         companyId: Updated associated company ID.
         avatarUrl: Updated avatar URL.
         position: Updated display sort order.
@@ -744,11 +737,11 @@ async def update_person(
 @mcp.tool()
 async def update_people(
     ids: list[str],
-    name: str = None,
-    emails: str = None,
-    phones: str = None,
+    name: FullNameModel | None = None,
+    emails: EmailsModel | None = None,
+    phones: PhonesModel | None = None,
     jobTitle: str = None,
-    linkedinLink: str = None,
+    linkedinLink: LinkModel | None = None,
     companyId: str = None,
     avatarUrl: str = None,
     position: int = None,
@@ -758,11 +751,11 @@ async def update_people(
 
     Args:
         ids: List of person IDs to update (required).
-        name: Updated name as JSON string.
-        emails: Updated emails as JSON string.
-        phones: Updated phones as JSON string.
+        name: Updated full name with firstName and lastName.
+        emails: Updated email addresses with primaryEmail and optional additionalEmails.
+        phones: Updated phone with primaryPhoneNumber and primaryPhoneCountryCode.
         jobTitle: Updated job title.
-        linkedinLink: Updated LinkedIn link as JSON string.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         companyId: Updated associated company ID.
         avatarUrl: Updated avatar URL.
         position: Updated display sort order.
@@ -835,12 +828,8 @@ async def get_opportunity_by_id(id: str, include_all_fields: bool = False, ctx: 
 async def create_opportunity(
     name: str,
     stage: str,
-    amount: str = "",
+    amount: MoneyModel | None = None,
     closeDate: str = "",
-    companyId: str = "",
-    pointOfContactId: str = "",
-    ownerId: str = "",
-    position: int = 0,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new opportunity record.
@@ -848,17 +837,11 @@ async def create_opportunity(
     Args:
         name: Name of the opportunity (required).
         stage: Pipeline stage (e.g. NEW, SCREENING, MEETING, PROPOSAL) (required).
-        amount: JSON string with amountMicros and currencyCode.
-        closeDate: Expected close date (ISO 8601 with UTC offset).
-        companyId: ID of the associated company.
-        pointOfContactId: ID of the associated person.
-        ownerId: ID of the workspace member who owns this opportunity.
-        position: Display sort order.
+        amount: Monetary amount with amountMicros and currencyCode.
+        closeDate: ISO 8601 date string for expected close date.
     """
-    params = CreateOpportunityParam(
-        name=name, amount=amount, closeDate=closeDate, stage=stage,
-        companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
-    )
+    closeDatePayload = {"date": closeDate} if closeDate else None
+    params = CreateOpportunityParam(name=name, amount=amount, closeDate=closeDatePayload, stage=stage)
     payload = _build_payload(params)
     return await get_client().create_opportunity(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -869,7 +852,7 @@ async def create_opportunity(
 async def update_opportunity(
     id: str,
     name: str = None,
-    amount: str = None,
+    amount: MoneyModel | None = None,
     closeDate: str = None,
     stage: str = None,
     companyId: str = None,
@@ -883,16 +866,17 @@ async def update_opportunity(
     Args:
         id: The unique ID of the opportunity to update (required).
         name: Updated name of the opportunity.
-        amount: Updated amount as JSON string.
-        closeDate: Updated close date (ISO 8601 with UTC offset).
+        amount: Updated monetary amount with amountMicros and currencyCode.
+        closeDate: Updated ISO 8601 date string for expected close date.
         stage: Updated pipeline stage.
         companyId: Updated associated company ID.
         pointOfContactId: Updated associated person ID.
         ownerId: Updated owner workspace member ID.
         position: Updated display sort order.
     """
+    closeDatePayload = {"date": closeDate} if closeDate else None
     params = UpdateOpportunityParam(
-        id=id, name=name, amount=amount, closeDate=closeDate, stage=stage,
+        id=id, name=name, amount=amount, closeDate=closeDatePayload, stage=stage,
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
     payload = _build_payload(params)
@@ -905,7 +889,7 @@ async def update_opportunity(
 async def update_opportunities(
     ids: list[str],
     name: str = None,
-    amount: str = None,
+    amount: MoneyModel | None = None,
     closeDate: str = None,
     stage: str = None,
     companyId: str = None,
@@ -919,16 +903,17 @@ async def update_opportunities(
     Args:
         ids: List of opportunity IDs to update (required).
         name: Updated name of the opportunity.
-        amount: Updated amount as JSON string.
-        closeDate: Updated close date (ISO 8601 with UTC offset).
+        amount: Updated monetary amount with amountMicros and currencyCode.
+        closeDate: Updated ISO 8601 date string for expected close date.
         stage: Updated pipeline stage.
         companyId: Updated associated company ID.
         pointOfContactId: Updated associated person ID.
         ownerId: Updated owner workspace member ID.
         position: Updated display sort order.
     """
+    closeDatePayload = {"date": closeDate} if closeDate else None
     params = UpdateOpportunityParam(
-        name=name, amount=amount, closeDate=closeDate, stage=stage,
+        name=name, amount=amount, closeDate=closeDatePayload, stage=stage,
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
     payload = _build_payload(params)
@@ -994,18 +979,16 @@ async def get_note_by_id(id: str, include_all_fields: bool = False, ctx: Context
 @mcp.tool()
 async def create_note(
     title: str,
-    bodyV2: str = "",
-    position: int = 0,
+    markdown: str = "",
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new note record.
 
     Args:
         title: Title of the note (required).
-        bodyV2: JSON string with blocknote and markdown fields.
-        position: Display sort order.
+        markdown: Markdown-formatted body text for the note.
     """
-    params = CreateNoteParam(title=title, bodyV2=bodyV2, position=position)
+    params = CreateNoteParam(title=title, bodyV2=_wrap_markdown(markdown))
     payload = _build_payload(params)
     return await get_client().create_note(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -1016,7 +999,7 @@ async def create_note(
 async def update_note(
     id: str,
     title: str = None,
-    bodyV2: str = None,
+    markdown: str = None,
     position: int = None,
     ctx: Context = None
 ) -> dict[str, Any]:
@@ -1025,9 +1008,10 @@ async def update_note(
     Args:
         id: The unique ID of the note to update (required).
         title: Updated title of the note.
-        bodyV2: Updated body as JSON string.
+        markdown: Updated markdown-formatted body text.
         position: Updated display sort order.
     """
+    bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(id=id, title=title, bodyV2=bodyV2, position=position)
     payload = _build_payload(params)
     return await get_client().update_note(
@@ -1039,7 +1023,7 @@ async def update_note(
 async def update_notes(
     ids: list[str],
     title: str = None,
-    bodyV2: str = None,
+    markdown: str = None,
     position: int = None,
     ctx: Context = None
 ) -> dict[str, Any]:
@@ -1048,9 +1032,10 @@ async def update_notes(
     Args:
         ids: List of note IDs to update (required).
         title: Updated title of the note.
-        bodyV2: Updated body as JSON string.
+        markdown: Updated markdown-formatted body text.
         position: Updated display sort order.
     """
+    bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(title=title, bodyV2=bodyV2, position=position)
     payload = _build_payload(params)
     return await get_client().update_notes(
@@ -1116,10 +1101,9 @@ async def get_task_by_id(id: str, include_all_fields: bool = False, ctx: Context
 async def create_task(
     title: str,
     status: str,
-    bodyV2: str = "",
+    markdown: str = "",
     dueAt: str = "",
     assigneeId: str = "",
-    position: int = 0,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new task record.
@@ -1127,14 +1111,13 @@ async def create_task(
     Args:
         title: Title of the task (required).
         status: Task status (e.g. TODO, IN_PROGRESS, DONE) (required).
-        bodyV2: JSON string with blocknote and markdown fields.
+        markdown: Markdown-formatted body text for the task.
         dueAt: Due date (ISO 8601 with UTC offset).
         assigneeId: ID of the workspace member assigned to this task.
-        position: Display sort order.
     """
     params = CreateTaskParam(
-        title=title, bodyV2=bodyV2, status=status, dueAt=dueAt,
-        assigneeId=assigneeId, position=position,
+        title=title, bodyV2=_wrap_markdown(markdown), status=status, dueAt=dueAt,
+        assigneeId=assigneeId,
     )
     payload = _build_payload(params)
     return await get_client().create_task(
@@ -1146,7 +1129,7 @@ async def create_task(
 async def update_task(
     id: str,
     title: str = None,
-    bodyV2: str = None,
+    markdown: str = None,
     status: str = None,
     dueAt: str = None,
     assigneeId: str = None,
@@ -1158,12 +1141,13 @@ async def update_task(
     Args:
         id: The unique ID of the task to update (required).
         title: Updated title of the task.
-        bodyV2: Updated body as JSON string.
+        markdown: Updated markdown-formatted body text.
         status: Updated task status.
         dueAt: Updated due date (ISO 8601 with UTC offset).
         assigneeId: Updated assignee workspace member ID.
         position: Updated display sort order.
     """
+    bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
         id=id, title=title, bodyV2=bodyV2, status=status, dueAt=dueAt,
         assigneeId=assigneeId, position=position,
@@ -1178,7 +1162,7 @@ async def update_task(
 async def update_tasks(
     ids: list[str],
     title: str = None,
-    bodyV2: str = None,
+    markdown: str = None,
     status: str = None,
     dueAt: str = None,
     assigneeId: str = None,
@@ -1190,12 +1174,13 @@ async def update_tasks(
     Args:
         ids: List of task IDs to update (required).
         title: Updated title of the task.
-        bodyV2: Updated body as JSON string.
+        markdown: Updated markdown-formatted body text.
         status: Updated task status.
         dueAt: Updated due date (ISO 8601 with UTC offset).
         assigneeId: Updated assignee workspace member ID.
         position: Updated display sort order.
     """
+    bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
         title=title, bodyV2=bodyV2, status=status, dueAt=dueAt,
         assigneeId=assigneeId, position=position,
@@ -1263,22 +1248,16 @@ async def get_workflow_by_id(id: str, include_all_fields: bool = False, ctx: Con
 @mcp.tool()
 async def create_workflow(
     name: str,
-    statuses: str,
-    lastPublishedVersionId: str = "",
-    position: int = 0,
+    statuses: list[str],
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new workflow record.
 
     Args:
         name: Name of the workflow (required).
-        statuses: JSON array of workflow statuses (e.g. ["ACTIVE"]) (required).
-        lastPublishedVersionId: ID of the last published version.
-        position: Display sort order.
+        statuses: List of workflow statuses (e.g. ["ACTIVE"]) (required).
     """
-    params = CreateWorkflowParam(
-        name=name, statuses=statuses, lastPublishedVersionId=lastPublishedVersionId, position=position,
-    )
+    params = CreateWorkflowParam(name=name, statuses=statuses)
     payload = _build_payload(params)
     return await get_client().create_workflow(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -1289,7 +1268,7 @@ async def create_workflow(
 async def update_workflow(
     id: str,
     name: str = None,
-    statuses: str = None,
+    statuses: list[str] = None,
     lastPublishedVersionId: str = None,
     position: int = None,
     ctx: Context = None
@@ -1299,7 +1278,7 @@ async def update_workflow(
     Args:
         id: The unique ID of the workflow to update (required).
         name: Updated name of the workflow.
-        statuses: Updated statuses as JSON array string.
+        statuses: Updated list of workflow statuses.
         lastPublishedVersionId: Updated last published version ID.
         position: Updated display sort order.
     """
@@ -1358,7 +1337,7 @@ async def get_workspace_member_by_id(id: str, include_all_fields: bool = False, 
 @mcp.tool()
 async def update_workspace_member(
     id: str,
-    name: str = None,
+    name: FullNameModel | None = None,
     colorScheme: str = None,
     locale: str = None,
     avatarUrl: str = None,
@@ -1375,7 +1354,7 @@ async def update_workspace_member(
 
     Args:
         id: The unique ID of the workspace member to update (required).
-        name: Updated name as JSON string.
+        name: Updated full name with firstName and lastName.
         colorScheme: Updated UI color scheme.
         locale: Updated locale code.
         avatarUrl: Updated avatar URL.
@@ -1401,7 +1380,7 @@ async def update_workspace_member(
 @mcp.tool()
 async def update_workspace_members(
     ids: list[str],
-    name: str = None,
+    name: FullNameModel | None = None,
     colorScheme: str = None,
     locale: str = None,
     avatarUrl: str = None,
@@ -1418,7 +1397,7 @@ async def update_workspace_members(
 
     Args:
         ids: List of workspace member IDs to update (required).
-        name: Updated name as JSON string.
+        name: Updated full name with firstName and lastName.
         colorScheme: Updated UI color scheme.
         locale: Updated locale code.
         avatarUrl: Updated avatar URL.
@@ -1498,40 +1477,16 @@ async def get_attachment_by_id(id: str, include_all_fields: bool = False, ctx: C
 @mcp.tool()
 async def create_attachment(
     name: str,
-    fullPath: str,
-    fileCategory: str = "",
-    authorId: str = "",
-    targetTaskId: str = "",
-    targetNoteId: str = "",
-    targetPersonId: str = "",
-    targetCompanyId: str = "",
-    targetOpportunityId: str = "",
-    targetDashboardId: str = "",
-    targetWorkflowId: str = "",
+    fullPath: str = "",
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new attachment record.
 
     Args:
         name: Name of the attachment file (required).
-        fullPath: Full file path (required).
-        fileCategory: Category of the file.
-        authorId: ID of the workspace member who authored this attachment.
-        targetTaskId: ID of the associated task.
-        targetNoteId: ID of the associated note.
-        targetPersonId: ID of the associated person.
-        targetCompanyId: ID of the associated company.
-        targetOpportunityId: ID of the associated opportunity.
-        targetDashboardId: ID of the associated dashboard.
-        targetWorkflowId: ID of the associated workflow.
+        fullPath: Full file path.
     """
-    params = CreateAttachmentParam(
-        name=name, fullPath=fullPath, fileCategory=fileCategory,
-        authorId=authorId, targetTaskId=targetTaskId, targetNoteId=targetNoteId,
-        targetPersonId=targetPersonId, targetCompanyId=targetCompanyId,
-        targetOpportunityId=targetOpportunityId, targetDashboardId=targetDashboardId,
-        targetWorkflowId=targetWorkflowId,
-    )
+    params = CreateAttachmentParam(name=name, fullPath=fullPath)
     payload = _build_payload(params)
     return await get_client().create_attachment(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -1962,22 +1917,6 @@ async def get_timeline_activity_by_id(id: str, include_all_fields: bool = False,
 async def create_timeline_activity(
     name: str,
     happensAt: str,
-    workspaceMemberId: str = "",
-    linkedRecordId: str = "",
-    linkedObjectMetadataId: str = "",
-    targetPersonId: str = "",
-    targetCompanyId: str = "",
-    targetOpportunityId: str = "",
-    targetNoteId: str = "",
-    targetTaskId: str = "",
-    targetWorkflowId: str = "",
-    targetWorkflowVersionId: str = "",
-    targetWorkflowRunId: str = "",
-    targetDashboardId: str = "",
-    targetMessageListId: str = "",
-    targetMessageCampaignId: str = "",
-    properties: str = "{}",
-    position: int = 0,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new timeline activity record.
@@ -1985,33 +1924,8 @@ async def create_timeline_activity(
     Args:
         name: Name of the activity (required).
         happensAt: When the activity occurred (ISO 8601 with UTC offset) (required).
-        workspaceMemberId: ID of the associated workspace member.
-        linkedRecordId: ID of the linked record.
-        linkedObjectMetadataId: Metadata ID of the linked object.
-        targetPersonId: ID of the associated person.
-        targetCompanyId: ID of the associated company.
-        targetOpportunityId: ID of the associated opportunity.
-        targetNoteId: ID of the associated note.
-        targetTaskId: ID of the associated task.
-        targetWorkflowId: ID of the associated workflow.
-        targetWorkflowVersionId: ID of the associated workflow version.
-        targetWorkflowRunId: ID of the associated workflow run.
-        targetDashboardId: ID of the associated dashboard.
-        targetMessageListId: ID of the associated message list.
-        targetMessageCampaignId: ID of the associated message campaign.
-        properties: JSON string with additional properties.
-        position: Display sort order.
     """
-    params = CreateTimelineActivityParam(
-        name=name, happensAt=happensAt, workspaceMemberId=workspaceMemberId,
-        linkedRecordId=linkedRecordId, linkedObjectMetadataId=linkedObjectMetadataId,
-        targetPersonId=targetPersonId, targetCompanyId=targetCompanyId,
-        targetOpportunityId=targetOpportunityId, targetNoteId=targetNoteId,
-        targetTaskId=targetTaskId, targetWorkflowId=targetWorkflowId,
-        targetWorkflowVersionId=targetWorkflowVersionId, targetWorkflowRunId=targetWorkflowRunId,
-        targetDashboardId=targetDashboardId, targetMessageListId=targetMessageListId,
-        targetMessageCampaignId=targetMessageCampaignId, properties=properties, position=position,
-    )
+    params = CreateTimelineActivityParam(name=name, happensAt=happensAt)
     payload = _build_payload(params)
     return await get_client().create_timeline_activity(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -2201,13 +2115,10 @@ async def create_calendar_event(
     title: str,
     startsAt: str,
     endsAt: str,
-    isCanceled: bool = False,
-    isFullDay: bool = False,
     description: str = "",
-    location: str = "",
-    iCalUid: str = "",
-    conferenceSolution: str = "",
-    conferenceLink: str = "{}",
+    location: LocationModel | None = None,
+    conferenceSolution: ConferenceSolutionModel | None = None,
+    conferenceLink: LinkModel | None = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new calendar event record.
@@ -2216,18 +2127,14 @@ async def create_calendar_event(
         title: Title of the calendar event (required).
         startsAt: Start time (ISO 8601 with UTC offset) (required).
         endsAt: End time (ISO 8601 with UTC offset) (required).
-        isCanceled: Whether the event is canceled.
-        isFullDay: Whether the event is an all-day event.
         description: Description of the event.
-        location: Location of the event.
-        iCalUid: iCal UID for the event.
-        conferenceSolution: Conference solution type.
-        conferenceLink: JSON string with conference link details.
+        location: Event location with city/region/country/address.
+        conferenceSolution: Video conference solution with name/icon/meetingUrl/dialData.
+        conferenceLink: Conference link with primaryLinkUrl and optional primaryLinkLabel.
     """
     params = CreateCalendarEventParam(
-        title=title, isCanceled=isCanceled, isFullDay=isFullDay,
-        startsAt=startsAt, endsAt=endsAt, description=description,
-        location=location, iCalUid=iCalUid, conferenceSolution=conferenceSolution,
+        title=title, startsAt=startsAt, endsAt=endsAt, description=description,
+        location=location, conferenceSolution=conferenceSolution,
         conferenceLink=conferenceLink,
     )
     payload = _build_payload(params)
@@ -2240,15 +2147,16 @@ async def create_calendar_event(
 async def update_calendar_event(
     id: str,
     title: str = None,
-    isCanceled: bool = None,
-    isFullDay: bool = None,
+    description: str = None,
     startsAt: str = None,
     endsAt: str = None,
-    description: str = None,
-    location: str = None,
+    isCanceled: bool = None,
+    isFullDay: bool = None,
+    location: LocationModel | None = None,
+    conferenceSolution: ConferenceSolutionModel | None = None,
+    conferenceLink: LinkModel | None = None,
     iCalUid: str = None,
-    conferenceSolution: str = None,
-    conferenceLink: str = None,
+    position: int = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing calendar event record.
@@ -2256,15 +2164,16 @@ async def update_calendar_event(
     Args:
         id: The unique ID of the calendar event to update (required).
         title: Updated title of the calendar event.
-        isCanceled: Updated cancellation status.
-        isFullDay: Updated all-day flag.
+        description: Updated description.
         startsAt: Updated start time (ISO 8601 with UTC offset).
         endsAt: Updated end time (ISO 8601 with UTC offset).
-        description: Updated description.
-        location: Updated location.
+        isCanceled: Updated cancellation status.
+        isFullDay: Updated all-day flag.
+        location: Updated event location with city/region/country/address.
+        conferenceSolution: Updated video conference solution with name/icon/meetingUrl/dialData.
+        conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
         iCalUid: Updated iCal UID.
-        conferenceSolution: Updated conference solution type.
-        conferenceLink: Updated conference link as JSON string.
+        position: Updated display sort order.
     """
     params = UpdateCalendarEventParam(
         id=id, title=title, isCanceled=isCanceled, isFullDay=isFullDay,
@@ -2282,15 +2191,16 @@ async def update_calendar_event(
 async def update_calendar_events(
     ids: list[str],
     title: str = None,
-    isCanceled: bool = None,
-    isFullDay: bool = None,
+    description: str = None,
     startsAt: str = None,
     endsAt: str = None,
-    description: str = None,
-    location: str = None,
+    isCanceled: bool = None,
+    isFullDay: bool = None,
+    location: LocationModel | None = None,
+    conferenceSolution: ConferenceSolutionModel | None = None,
+    conferenceLink: LinkModel | None = None,
     iCalUid: str = None,
-    conferenceSolution: str = None,
-    conferenceLink: str = None,
+    position: int = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update calendar event records by IDs.
@@ -2298,15 +2208,16 @@ async def update_calendar_events(
     Args:
         ids: List of calendar event IDs to update (required).
         title: Updated title of the calendar event.
-        isCanceled: Updated cancellation status.
-        isFullDay: Updated all-day flag.
+        description: Updated description.
         startsAt: Updated start time (ISO 8601 with UTC offset).
         endsAt: Updated end time (ISO 8601 with UTC offset).
-        description: Updated description.
-        location: Updated location.
+        isCanceled: Updated cancellation status.
+        isFullDay: Updated all-day flag.
+        location: Updated event location with city/region/country/address.
+        conferenceSolution: Updated video conference solution with name/icon/meetingUrl/dialData.
+        conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
         iCalUid: Updated iCal UID.
-        conferenceSolution: Updated conference solution type.
-        conferenceLink: Updated conference link as JSON string.
+        position: Updated display sort order.
     """
     params = UpdateCalendarEventParam(
         title=title, isCanceled=isCanceled, isFullDay=isFullDay,
@@ -2534,30 +2445,14 @@ async def get_message_by_id(id: str, include_all_fields: bool = False, ctx: Cont
 @mcp.tool()
 async def create_message(
     subject: str,
-    headerMessageId: str = "",
-    text: str = "",
-    receivedAt: str = "",
-    messageThreadId: str = "",
-    messageCampaignId: str = "",
-    deliveryStatus: str = "",
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new message record.
 
     Args:
         subject: Subject of the message (required).
-        headerMessageId: Header message ID.
-        text: Body text of the message.
-        receivedAt: Received timestamp (ISO 8601 with UTC offset).
-        messageThreadId: ID of the associated message thread.
-        messageCampaignId: ID of the associated message campaign.
-        deliveryStatus: Delivery status of the message.
     """
-    params = CreateMessageParam(
-        headerMessageId=headerMessageId, subject=subject, text=text,
-        receivedAt=receivedAt, messageThreadId=messageThreadId,
-        messageCampaignId=messageCampaignId, deliveryStatus=deliveryStatus,
-    )
+    params = CreateMessageParam(subject=subject)
     payload = _build_payload(params)
     return await get_client().create_message(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -2958,13 +2853,6 @@ async def get_call_recording_by_id(id: str, include_all_fields: bool = False, ct
 async def create_call_recording(
     title: str,
     status: str,
-    recordingRequestStatus: str = "",
-    applicationId: str = "",
-    externalBotId: str = "",
-    externalRecordingId: str = "",
-    startedAt: str = "",
-    endedAt: str = "",
-    calendarEventId: str = "",
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new call recording record.
@@ -2972,20 +2860,8 @@ async def create_call_recording(
     Args:
         title: Title of the call recording (required).
         status: Status of the call recording (required).
-        recordingRequestStatus: Request status for the recording.
-        applicationId: Application ID.
-        externalBotId: External bot ID.
-        externalRecordingId: External recording ID.
-        startedAt: Start time (ISO 8601 with UTC offset).
-        endedAt: End time (ISO 8601 with UTC offset).
-        calendarEventId: ID of the associated calendar event.
     """
-    params = CreateCallRecordingParam(
-        title=title, status=status, recordingRequestStatus=recordingRequestStatus,
-        applicationId=applicationId, externalBotId=externalBotId,
-        externalRecordingId=externalRecordingId, startedAt=startedAt,
-        endedAt=endedAt, calendarEventId=calendarEventId,
-    )
+    params = CreateCallRecordingParam(title=title, status=status)
     payload = _build_payload(params)
     return await get_client().create_call_recording(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE

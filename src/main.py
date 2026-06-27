@@ -133,6 +133,9 @@ class CreatePersonParam(BaseModel):
     name: FullNameModel
     emails: EmailsModel
     jobTitle: str = ""
+    companyId: str = ""
+    avatarUrl: str = ""
+    position: int = 0
 
 
 class UpdatePersonParam(BaseModel):
@@ -312,6 +315,10 @@ class UpdateTaskTargetParam(BaseModel):
 class CreateTimelineActivityParam(BaseModel):
     name: str
     happensAt: str
+    targetCompanyId: str = ""
+    linkedRecordId: str = ""
+    linkedObjectMetadataId: str = ""
+    workspaceMemberId: str = ""
 
 
 class UpdateTimelineActivityParam(BaseModel):
@@ -669,6 +676,9 @@ async def create_person(
     name: FullNameModel,
     emails: EmailsModel,
     jobTitle: str = "",
+    companyId: str = "",
+    avatarUrl: str = "",
+    position: int = 0,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new person record.
@@ -677,8 +687,14 @@ async def create_person(
         name: Full name with firstName and lastName (required).
         emails: Email addresses with primaryEmail and optional additionalEmails (required).
         jobTitle: Job title of the person. (optional)
+        companyId: ID of the associated company. (optional)
+        avatarUrl: URL to the person's avatar image. (optional)
+        position: Display sort order (lower values appear first). (optional)
     """
-    params = CreatePersonParam(name=name, emails=emails, jobTitle=jobTitle)
+    params = CreatePersonParam(
+        name=name, emails=emails, jobTitle=jobTitle, companyId=companyId,
+        avatarUrl=avatarUrl, position=position,
+    )
     payload = _build_payload(params)
     return await get_client().create_person(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -1894,6 +1910,10 @@ async def get_timeline_activity_by_id(id: str, include_all_fields: bool = False,
 async def create_timeline_activity(
     name: str,
     happensAt: str,
+    targetCompanyId: str = "",
+    linkedRecordId: str = "",
+    linkedObjectMetadataId: str = "",
+    workspaceMemberId: str = "",
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new timeline activity record.
@@ -1901,8 +1921,16 @@ async def create_timeline_activity(
     Args:
         name: Name of the activity (required).
         happensAt: When the activity occurred (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
+        targetCompanyId: ID of the associated company. (optional)
+        linkedRecordId: ID of a linked record (e.g. calendar event). (optional)
+        linkedObjectMetadataId: Metadata ID for the linked record type. (optional)
+        workspaceMemberId: ID of the workspace member who performed the activity. (optional)
     """
-    params = CreateTimelineActivityParam(name=name, happensAt=happensAt)
+    params = CreateTimelineActivityParam(
+        name=name, happensAt=happensAt, targetCompanyId=targetCompanyId,
+        linkedRecordId=linkedRecordId, linkedObjectMetadataId=linkedObjectMetadataId,
+        workspaceMemberId=workspaceMemberId,
+    )
     payload = _build_payload(params)
     return await get_client().create_timeline_activity(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE

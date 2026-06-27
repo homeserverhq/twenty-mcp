@@ -107,24 +107,6 @@ def _wrap_markdown(markdown: str | None) -> dict | None:
     return None
 
 
-class LocationModel(BaseModel):
-    """Calendar event location components."""
-
-    city: str = ""     # City name.
-    region: str = ""   # State, province, or region name.
-    country: str = ""  # Country name.
-    address: str = ""  # Full street address.
-
-
-class ConferenceSolutionModel(BaseModel):
-    """Video conference solution details."""
-
-    name: str = ""                # Conference solution name (e.g. Zoom, Google Meet).
-    icon: str = ""                # Icon URL or identifier.
-    meetingUrl: str | None = None  # Meeting join URL.
-    dialData: str | None = None    # Phone dial-in numbers/instructions.
-
-
 # =============================================================================
 # Pydantic Contract Models — Company
 # =============================================================================
@@ -362,8 +344,7 @@ class CreateCalendarEventParam(BaseModel):
     startsAt: str
     endsAt: str
     description: str = ""
-    location: LocationModel | None = None
-    conferenceSolution: ConferenceSolutionModel | None = None
+    location: str = ""
     conferenceLink: LinkModel | None = None
 
 
@@ -375,8 +356,7 @@ class UpdateCalendarEventParam(BaseModel):
     endsAt: Optional[str] = None
     isCanceled: Optional[bool] = None
     isFullDay: Optional[bool] = None
-    location: LocationModel | None = None
-    conferenceSolution: ConferenceSolutionModel | None = None
+    location: Optional[str] = None
     conferenceLink: LinkModel | None = None
     iCalUid: Optional[str] = None
     position: Optional[int] = None
@@ -2113,8 +2093,7 @@ async def create_calendar_event(
     startsAt: str,
     endsAt: str,
     description: str = "",
-    location: LocationModel | None = None,
-    conferenceSolution: ConferenceSolutionModel | None = None,
+    location: str = "",
     conferenceLink: LinkModel | None = None,
     ctx: Context = None
 ) -> dict[str, Any]:
@@ -2125,14 +2104,12 @@ async def create_calendar_event(
         startsAt: Start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
         endsAt: End time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
         description: Description of the event. (optional)
-        location: Event location with city/region/country/address. (optional)
-        conferenceSolution: Video conference solution with name/icon/meetingUrl/dialData. (optional)
+        location: Event location as plain text. (optional)
         conferenceLink: Conference link with primaryLinkUrl and optional primaryLinkLabel. (optional)
     """
     params = CreateCalendarEventParam(
         title=title, startsAt=startsAt, endsAt=endsAt, description=description,
-        location=location, conferenceSolution=conferenceSolution,
-        conferenceLink=conferenceLink,
+        location=location, conferenceLink=conferenceLink,
     )
     payload = _build_payload(params)
     return await get_client().create_calendar_event(
@@ -2149,8 +2126,7 @@ async def update_calendar_event(
     endsAt: Optional[str] = None,
     isCanceled: Optional[bool] = None,
     isFullDay: Optional[bool] = None,
-    location: LocationModel | None = None,
-    conferenceSolution: ConferenceSolutionModel | None = None,
+    location: Optional[str] = None,
     conferenceLink: LinkModel | None = None,
     iCalUid: Optional[str] = None,
     position: Optional[int] = None,
@@ -2166,8 +2142,7 @@ async def update_calendar_event(
         endsAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         isCanceled: Updated cancellation status. (optional)
         isFullDay: Updated all-day flag. (optional)
-        location: Updated event location with city/region/country/address. (optional)
-        conferenceSolution: Updated video conference solution with name/icon/meetingUrl/dialData. (optional)
+        location: Updated event location as plain text. (optional)
         conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel. (optional)
         iCalUid: Updated iCal UID. (optional)
         position: Display sort order (lower values appear first). (optional)
@@ -2175,8 +2150,7 @@ async def update_calendar_event(
     params = UpdateCalendarEventParam(
         id=id, title=title, isCanceled=isCanceled, isFullDay=isFullDay,
         startsAt=startsAt, endsAt=endsAt, description=description,
-        location=location, iCalUid=iCalUid, conferenceSolution=conferenceSolution,
-        conferenceLink=conferenceLink,
+        location=location, iCalUid=iCalUid, conferenceLink=conferenceLink,
     )
     payload = _build_payload(params)
     return await get_client().update_calendar_event(
@@ -2193,8 +2167,7 @@ async def update_calendar_events(
     endsAt: Optional[str] = None,
     isCanceled: Optional[bool] = None,
     isFullDay: Optional[bool] = None,
-    location: LocationModel | None = None,
-    conferenceSolution: ConferenceSolutionModel | None = None,
+    location: Optional[str] = None,
     conferenceLink: LinkModel | None = None,
     iCalUid: Optional[str] = None,
     position: Optional[int] = None,
@@ -2210,8 +2183,7 @@ async def update_calendar_events(
         endsAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
         isCanceled: Updated cancellation status. (optional)
         isFullDay: Updated all-day flag. (optional)
-        location: Updated event location with city/region/country/address. (optional)
-        conferenceSolution: Updated video conference solution with name/icon/meetingUrl/dialData. (optional)
+        location: Updated event location as plain text. (optional)
         conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel. (optional)
         iCalUid: Updated iCal UID. (optional)
         position: Display sort order (lower values appear first). (optional)
@@ -2219,8 +2191,7 @@ async def update_calendar_events(
     params = UpdateCalendarEventParam(
         title=title, isCanceled=isCanceled, isFullDay=isFullDay,
         startsAt=startsAt, endsAt=endsAt, description=description,
-        location=location, iCalUid=iCalUid, conferenceSolution=conferenceSolution,
-        conferenceLink=conferenceLink,
+        location=location, iCalUid=iCalUid, conferenceLink=conferenceLink,
     )
     payload = _build_payload(params)
     return await get_client().update_calendar_events(

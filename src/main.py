@@ -55,48 +55,48 @@ def get_user_token() -> Optional[str]:
 class FullNameModel(BaseModel):
     """First and last name for a person or workspace member."""
 
-    firstName: str  # Given name.
-    lastName: str  # Family name.
+    firstName: str = Field(description="Given name.")
+    lastName: str = Field(description="Family name.")
 
 
 class LinkModel(BaseModel):
     """A URL-based link with an optional label. Used for domainName, linkedinLink, conferenceLink."""
 
-    primaryLinkUrl: str  # The URL string.
-    primaryLinkLabel: str = ""  # Optional display label for the link.
+    primaryLinkUrl: str = Field(description="The URL string.")
+    primaryLinkLabel: str = Field(default="", description="Optional display label for the link.")
 
 
 class AddressModel(BaseModel):
     """Physical address with optional lat/lng coordinates."""
 
-    addressStreet1: str = ""  # Street address line 1 (e.g. 123 Main St).
-    addressStreet2: str = ""  # Street address line 2 (e.g. Apt 4B).
-    addressCity: str = ""     # City name.
-    addressState: str = ""    # State, province, or region code.
-    addressCountry: str = ""  # Country code or full name.
-    addressPostcode: str = "" # Postal / ZIP code.
-    addressLat: float | None = None  # Latitude in decimal degrees.
-    addressLng: float | None = None  # Longitude in decimal degrees.
+    addressStreet1: str = Field(default="", description="Street address line 1 (e.g. 123 Main St).")
+    addressStreet2: str = Field(default="", description="Street address line 2 (e.g. Apt 4B).")
+    addressCity: str = Field(default="", description="City name.")
+    addressState: str = Field(default="", description="State, province, or region code.")
+    addressCountry: str = Field(default="", description="Country code or full name.")
+    addressPostcode: str = Field(default="", description="Postal / ZIP code.")
+    addressLat: float | None = Field(default=None, description="Latitude in decimal degrees.")
+    addressLng: float | None = Field(default=None, description="Longitude in decimal degrees.")
 
 
 class MoneyModel(BaseModel):
     """Monetary value with currency. Used for amount, annualRevenue."""
 
-    amountMicros: int = 0  # Amount in micro-units (1 USD = 1000000 micro). E.g. $50.00 = 50000000.
-    currencyCode: str = "USD"  # ISO 4217 currency code.
+    amountMicros: int = Field(default=0, description="Amount in micro-units (1 USD = 1000000 micro). E.g. $50.00 = 50000000.")
+    currencyCode: str = Field(default="USD", description="ISO 4217 currency code.")
 
 
 class EmailsModel(BaseModel):
     """Email addresses with optional additional emails."""
 
-    primaryEmail: str  # Primary email address.
-    additionalEmails: list[str] = []  # Additional email addresses.
+    primaryEmail: str = Field(description="Primary email address.")
+    additionalEmails: list[str] = Field(default=[], description="Additional email addresses.")
 
 
 class PhonesModel(BaseModel):
     """Primary phone number with country code. No additional phones exposed."""
 
-    primaryPhoneNumber: str = ""  # Phone number (E.164 format recommended, e.g. +14155551234).
+    primaryPhoneNumber: str = Field(default="", description="Phone number (E.164 format recommended, e.g. +14155551234).")
     primaryPhoneCountryCode: str = Field(default="", description='Country code (e.g. "1" for US/CAN).')
 
 
@@ -511,6 +511,45 @@ def _build_payload(params: BaseModel) -> dict[str, Any]:
     return payload
 
 
+def _enum_upper(v: str | None) -> str | None:
+    if v is None:
+        return None
+    return v.upper()
+
+
+def _enum_capitalize(v: str | None) -> str | None:
+    if v is None:
+        return None
+    s = v.strip().lower()
+    return s.capitalize() if s else None
+
+
+def _snake_to_pascal(v: str | None) -> str | None:
+    if v is None:
+        return None
+    return "".join(word.capitalize() for word in v.split("_"))
+
+
+def _enum_upper_list(v: list[str] | None) -> list[str] | None:
+    if v is None:
+        return None
+    return [item.upper() for item in v]
+
+
+def _day_name_to_int(v: str | int | None) -> int | None:
+    if v is None:
+        return None
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str) and v.isdigit():
+        return int(v)
+    mapping = {
+        "sunday": 0, "monday": 1, "tuesday": 2, "wednesday": 3,
+        "thursday": 4, "friday": 5, "saturday": 6,
+    }
+    return mapping.get(v.strip().lower())
+
+
 # =============================================================================
 # Company Tools
 # =============================================================================
@@ -852,7 +891,7 @@ async def create_opportunity(
         amount: Monetary amount with amountMicros and currencyCode.
         closeDate: ISO 8601 format (2026-06-22T15:00:00-04:00).
     """
-    params = CreateOpportunityParam(name=name, amount=amount, closeDate=closeDate, stage=stage)
+    params = CreateOpportunityParam(name=name, amount=amount, closeDate=closeDate, stage=_enum_upper(stage))
     payload = _build_payload(params)
     return await get_client().create_opportunity(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -886,7 +925,7 @@ async def update_opportunity(
         position: Display position as a float. Lower values appear first.
     """
     params = UpdateOpportunityParam(
-        name=name, amount=amount, closeDate=closeDate, stage=stage,
+        name=name, amount=amount, closeDate=closeDate, stage=_enum_upper(stage),
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
     payload = _build_payload(params)
@@ -922,7 +961,7 @@ async def update_opportunities(
         position: Display position as a float. Lower values appear first.
     """
     params = UpdateOpportunityParam(
-        name=name, amount=amount, closeDate=closeDate, stage=stage,
+        name=name, amount=amount, closeDate=closeDate, stage=_enum_upper(stage),
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
     payload = _build_payload(params)
@@ -1121,7 +1160,7 @@ async def create_task(
         assigneeId: ID of the workspace member assigned to this task.
     """
     params = CreateTaskParam(
-        title=title, bodyV2=_wrap_markdown(markdown), status=status, dueAt=dueAt,
+        title=title, bodyV2=_wrap_markdown(markdown), status=_enum_upper(status), dueAt=dueAt,
         assigneeId=assigneeId,
     )
     payload = _build_payload(params)
@@ -1154,7 +1193,7 @@ async def update_task(
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
-        id=id, title=title, bodyV2=bodyV2, status=status, dueAt=dueAt,
+        id=id, title=title, bodyV2=bodyV2, status=_enum_upper(status), dueAt=dueAt,
         assigneeId=assigneeId, position=position,
     )
     payload = _build_payload(params)
@@ -1187,7 +1226,7 @@ async def update_tasks(
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
-        title=title, bodyV2=bodyV2, status=status, dueAt=dueAt,
+        title=title, bodyV2=bodyV2, status=_enum_upper(status), dueAt=dueAt,
         assigneeId=assigneeId, position=position,
     )
     payload = _build_payload(params)
@@ -1260,7 +1299,7 @@ async def create_workflow(
         name: Name of the workflow.
         statuses: draft, active, or deactivated
     """
-    params = CreateWorkflowParam(name=name, statuses=statuses)
+    params = CreateWorkflowParam(name=name, statuses=_enum_upper_list(statuses))
     payload = _build_payload(params)
     return await get_client().create_workflow(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -1286,7 +1325,7 @@ async def update_workflow(
         position: Display position as a float. Lower values appear first.
     """
     params = UpdateWorkflowParam(
-        id=id, name=name, statuses=statuses, lastPublishedVersionId=lastPublishedVersionId, position=position,
+        id=id, name=name, statuses=_enum_upper_list(statuses), lastPublishedVersionId=lastPublishedVersionId, position=position,
     )
     payload = _build_payload(params)
     return await get_client().update_workflow(
@@ -1343,7 +1382,7 @@ async def update_workspace_member(
     locale: Optional[str] = None,
     avatarUrl: Optional[str] = None,
     userEmail: Optional[str] = None,
-    calendarStartDay: Optional[int] = None,
+    calendarStartDay: Optional[str] = None,
     timeZone: Optional[str] = None,
     dateFormat: Optional[str] = None,
     timeFormat: Optional[str] = None,
@@ -1368,9 +1407,9 @@ async def update_workspace_member(
         position: Display position as a float. Lower values appear first.
     """
     params = UpdateWorkspaceMemberParam(
-        id=id, name=name, colorScheme=colorScheme, locale=locale, avatarUrl=avatarUrl,
-        userEmail=userEmail, calendarStartDay=calendarStartDay, timeZone=timeZone,
-        dateFormat=dateFormat, timeFormat=timeFormat, numberFormat=numberFormat, position=position,
+        id=id, name=name, colorScheme=_enum_capitalize(colorScheme), locale=locale, avatarUrl=avatarUrl,
+        userEmail=userEmail, calendarStartDay=_day_name_to_int(calendarStartDay), timeZone=timeZone,
+        dateFormat=_snake_to_pascal(dateFormat), timeFormat=_snake_to_pascal(timeFormat), numberFormat=_snake_to_pascal(numberFormat), position=position,
     )
     payload = _build_payload(params)
     return await get_client().update_workspace_member(
@@ -1386,7 +1425,7 @@ async def update_workspace_members(
     locale: Optional[str] = None,
     avatarUrl: Optional[str] = None,
     userEmail: Optional[str] = None,
-    calendarStartDay: Optional[int] = None,
+    calendarStartDay: Optional[str] = None,
     timeZone: Optional[str] = None,
     dateFormat: Optional[str] = None,
     timeFormat: Optional[str] = None,
@@ -1411,9 +1450,9 @@ async def update_workspace_members(
         position: Display position as a float. Lower values appear first.
     """
     params = UpdateWorkspaceMemberParam(
-        name=name, colorScheme=colorScheme, locale=locale, avatarUrl=avatarUrl,
-        userEmail=userEmail, calendarStartDay=calendarStartDay, timeZone=timeZone,
-        dateFormat=dateFormat, timeFormat=timeFormat, numberFormat=numberFormat, position=position,
+        name=name, colorScheme=_enum_capitalize(colorScheme), locale=locale, avatarUrl=avatarUrl,
+        userEmail=userEmail, calendarStartDay=_day_name_to_int(calendarStartDay), timeZone=timeZone,
+        dateFormat=_snake_to_pascal(dateFormat), timeFormat=_snake_to_pascal(timeFormat), numberFormat=_snake_to_pascal(numberFormat), position=position,
     )
     payload = _build_payload(params)
     return await get_client().update_workspace_members(
@@ -1525,7 +1564,7 @@ async def update_attachment(
         targetWorkflowId: Updated associated workflow ID.
     """
     params = UpdateAttachmentParam(
-        id=id, name=name, fullPath=fullPath, type=type, fileCategory=fileCategory,
+        id=id, name=name, fullPath=fullPath, type=type, fileCategory=_enum_upper(fileCategory),
         authorId=authorId, targetTaskId=targetTaskId, targetNoteId=targetNoteId,
         targetPersonId=targetPersonId, targetCompanyId=targetCompanyId,
         targetOpportunityId=targetOpportunityId, targetDashboardId=targetDashboardId,
@@ -1572,7 +1611,7 @@ async def update_attachments(
         targetWorkflowId: Updated associated workflow ID.
     """
     params = UpdateAttachmentParam(
-        name=name, fullPath=fullPath, type=type, fileCategory=fileCategory,
+        name=name, fullPath=fullPath, type=type, fileCategory=_enum_upper(fileCategory),
         authorId=authorId, targetTaskId=targetTaskId, targetNoteId=targetNoteId,
         targetPersonId=targetPersonId, targetCompanyId=targetCompanyId,
         targetOpportunityId=targetOpportunityId, targetDashboardId=targetDashboardId,
@@ -2281,7 +2320,7 @@ async def create_calendar_event_participant(
     handle: str,
     displayName: str,
     isOrganizer: bool = False,
-    responseStatus: str = "NEEDS_ACTION",
+    responseStatus: str = "needs_action",
     personId: str = "",
     workspaceMemberId: str = "",
     ctx: Context = None
@@ -2299,7 +2338,7 @@ async def create_calendar_event_participant(
     """
     params = CreateCalendarEventParticipantParam(
         calendarEventId=calendarEventId, handle=handle, displayName=displayName,
-        isOrganizer=isOrganizer, responseStatus=responseStatus,
+        isOrganizer=isOrganizer, responseStatus=_enum_upper(responseStatus),
         personId=personId, workspaceMemberId=workspaceMemberId,
     )
     payload = _build_payload(params)
@@ -2334,7 +2373,7 @@ async def update_calendar_event_participant(
     """
     params = UpdateCalendarEventParticipantParam(
         id=id, calendarEventId=calendarEventId, handle=handle, displayName=displayName,
-        isOrganizer=isOrganizer, responseStatus=responseStatus,
+        isOrganizer=isOrganizer, responseStatus=_enum_upper(responseStatus),
         personId=personId, workspaceMemberId=workspaceMemberId,
     )
     payload = _build_payload(params)
@@ -2369,7 +2408,7 @@ async def update_calendar_event_participants(
     """
     params = UpdateCalendarEventParticipantParam(
         calendarEventId=calendarEventId, handle=handle, displayName=displayName,
-        isOrganizer=isOrganizer, responseStatus=responseStatus,
+        isOrganizer=isOrganizer, responseStatus=_enum_upper(responseStatus),
         personId=personId, workspaceMemberId=workspaceMemberId,
     )
     payload = _build_payload(params)
@@ -2474,7 +2513,7 @@ async def update_message(
     params = UpdateMessageParam(
         id=id, headerMessageId=headerMessageId, subject=subject, text=text,
         receivedAt=receivedAt, messageThreadId=messageThreadId,
-        messageCampaignId=messageCampaignId, deliveryStatus=deliveryStatus,
+        messageCampaignId=messageCampaignId, deliveryStatus=_enum_upper(deliveryStatus),
     )
     payload = _build_payload(params)
     return await get_client().update_message(
@@ -2509,7 +2548,7 @@ async def update_messages(
     params = UpdateMessageParam(
         headerMessageId=headerMessageId, subject=subject, text=text,
         receivedAt=receivedAt, messageThreadId=messageThreadId,
-        messageCampaignId=messageCampaignId, deliveryStatus=deliveryStatus,
+        messageCampaignId=messageCampaignId, deliveryStatus=_enum_upper(deliveryStatus),
     )
     payload = _build_payload(params)
     return await get_client().update_messages(
@@ -2699,7 +2738,7 @@ async def create_message_participant(
         messageCampaignId: ID of the associated message campaign.
     """
     params = CreateMessageParticipantParam(
-        messageId=messageId, role=role, handle=handle, displayName=displayName,
+        messageId=messageId, role=_enum_upper(role), handle=handle, displayName=displayName,
         personId=personId, workspaceMemberId=workspaceMemberId,
         messageCampaignId=messageCampaignId,
     )
@@ -2734,7 +2773,7 @@ async def update_message_participant(
         messageCampaignId: Updated associated message campaign ID.
     """
     params = UpdateMessageParticipantParam(
-        id=id, messageId=messageId, role=role, handle=handle, displayName=displayName,
+        id=id, messageId=messageId, role=_enum_upper(role), handle=handle, displayName=displayName,
         personId=personId, workspaceMemberId=workspaceMemberId,
         messageCampaignId=messageCampaignId,
     )
@@ -2769,7 +2808,7 @@ async def update_message_participants(
         messageCampaignId: Updated associated message campaign ID.
     """
     params = UpdateMessageParticipantParam(
-        messageId=messageId, role=role, handle=handle, displayName=displayName,
+        messageId=messageId, role=_enum_upper(role), handle=handle, displayName=displayName,
         personId=personId, workspaceMemberId=workspaceMemberId,
         messageCampaignId=messageCampaignId,
     )
@@ -2843,7 +2882,7 @@ async def create_call_recording(
         title: Title of the call recording.
         status: scheduled, joining, recording, processing, completed, or failed
     """
-    params = CreateCallRecordingParam(title=title, status=status)
+    params = CreateCallRecordingParam(title=title, status=_enum_upper(status))
     payload = _build_payload(params)
     return await get_client().create_call_recording(
         payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
@@ -2879,7 +2918,7 @@ async def update_call_recording(
         calendarEventId: Updated associated calendar event ID.
     """
     params = UpdateCallRecordingParam(
-        id=id, title=title, status=status, recordingRequestStatus=recordingRequestStatus,
+        id=id, title=title, status=_enum_upper(status), recordingRequestStatus=_enum_upper(recordingRequestStatus),
         applicationId=applicationId, externalBotId=externalBotId,
         externalRecordingId=externalRecordingId, startedAt=startedAt,
         endedAt=endedAt, calendarEventId=calendarEventId,
@@ -2919,7 +2958,7 @@ async def update_call_recordings(
         calendarEventId: Updated associated calendar event ID.
     """
     params = UpdateCallRecordingParam(
-        title=title, status=status, recordingRequestStatus=recordingRequestStatus,
+        title=title, status=_enum_upper(status), recordingRequestStatus=_enum_upper(recordingRequestStatus),
         applicationId=applicationId, externalBotId=externalBotId,
         externalRecordingId=externalRecordingId, startedAt=startedAt,
         endedAt=endedAt, calendarEventId=calendarEventId,

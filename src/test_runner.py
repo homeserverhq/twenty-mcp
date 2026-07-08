@@ -361,17 +361,17 @@ PHASE3A_TESTS = [
         "emails": {"primaryEmail": f"t{r}-person@example.com"},
     }, "person", False),
     ("C1 create_opportunity", "create_opportunity", lambda s, r: {
-        "name": f"t{r}-Opportunity", "stage": "NEW",
+        "name": f"t{r}-Opportunity", "stage": "new",
     }, "opportunity", False),
     ("C1 resolve_workspaceMember", "list_workspace_members", lambda s, r: {}, "workspaceMember", False),
     ("C1 create_note", "create_note", lambda s, r: {
         "title": f"t{r}-Note",
     }, "note", False),
     ("C1 create_task", "create_task", lambda s, r: {
-        "title": f"t{r}-Task", "status": "TODO",
+        "title": f"t{r}-Task", "status": "todo",
     }, "task", False),
     ("C1 create_workflow", "create_workflow", lambda s, r: {
-        "name": f"t{r}-Workflow", "statuses": ["ACTIVE"],
+        "name": f"t{r}-Workflow", "statuses": ["active"],
     }, "workflow", False),
     ("C1 create_messageThread", "create_message_thread", lambda s, r: {
         "subject": f"t{r}-Thread",
@@ -398,7 +398,7 @@ PHASE3A_TESTS = [
         "name": f"t{r}-Attachment", "fullPath": f"/tmp/t{r}-att.pdf",
     }, "attachment", False),
     ("C1 create_callRecording", "create_call_recording", lambda s, r: {
-        "title": f"t{r}-Call", "status": "RECORDING",
+        "title": f"t{r}-Call", "status": "recording",
     }, "callRecording", False),
     ("C1 create_calendarEventParticipant", "create_calendar_event_participant", lambda s, r: {
         "calendarEventId": s.get("calendarEvent", {}).get("id"),
@@ -409,7 +409,7 @@ PHASE3A_TESTS = [
         "messageId": s.get("message", {}).get("id"),
         "handle": f"t{r}-msgpart",
         "displayName": f"t{r}-MsgPart",
-        "role": "FROM",
+        "role": "from",
     }, "messageParticipant", False),
 ]
 
@@ -436,10 +436,10 @@ PHASE3B_TESTS = [
 PHASE3C_TESTS = [
     ("C3 update_company", "update_company", lambda s, r: {"id": s.get("company", {}).get("id"), "name": f"t{r}-Company-Upd"}, None, False),
     ("C3 update_person", "update_person", lambda s, r: {"id": s.get("person", {}).get("id"), "jobTitle": f"t{r}-Engineer"}, None, False),
-    ("C3 update_opportunity", "update_opportunity", lambda s, r: {"id": s.get("opportunity", {}).get("id"), "stage": "SCREENING"}, None, False),
-    ("C3 update_workspaceMember", "update_workspace_member", lambda s, r: {"id": s.get("workspaceMember", {}).get("id"), "colorScheme": "Dark"}, None, False),
+    ("C3 update_opportunity", "update_opportunity", lambda s, r: {"id": s.get("opportunity", {}).get("id"), "stage": "screening"}, None, False),
+    ("C3 update_workspaceMember", "update_workspace_member", lambda s, r: {"id": s.get("workspaceMember", {}).get("id"), "colorScheme": "dark"}, None, False),
     ("C3 update_note", "update_note", lambda s, r: {"id": s.get("note", {}).get("id"), "title": f"t{r}-Note-Upd"}, None, False),
-    ("C3 update_task", "update_task", lambda s, r: {"id": s.get("task", {}).get("id"), "status": "IN_PROGRESS"}, None, False),
+    ("C3 update_task", "update_task", lambda s, r: {"id": s.get("task", {}).get("id"), "status": "in_progress"}, None, False),
     ("C3 update_workflow", "update_workflow", lambda s, r: {"id": s.get("workflow", {}).get("id")}, None, False),
     ("C3 update_messageThread", "update_message_thread", lambda s, r: {"id": s.get("messageThread", {}).get("id"), "subject": f"t{r}-Thread-Upd"}, None, False),
     ("C3 update_calendarEvent", "update_calendar_event", lambda s, r: {"id": s.get("calendarEvent", {}).get("id"), "title": f"t{r}-CalEvent-Upd"}, None, False),
@@ -448,7 +448,7 @@ PHASE3C_TESTS = [
     ("C3 update_taskTarget", "update_task_target", lambda s, r: {"id": s.get("taskTarget", {}).get("id")}, None, False),
     ("C3 update_timelineActivity", "update_timeline_activity", lambda s, r: {"id": s.get("timelineActivity", {}).get("id"), "name": f"t{r}-Timeline-Upd"}, None, False),
     ("C3 update_attachment", "update_attachment", lambda s, r: {"id": s.get("attachment", {}).get("id"), "name": f"t{r}-Attachment-Upd"}, None, False),
-    ("C3 update_callRecording", "update_call_recording", lambda s, r: {"id": s.get("callRecording", {}).get("id"), "status": "COMPLETED"}, None, False),
+    ("C3 update_callRecording", "update_call_recording", lambda s, r: {"id": s.get("callRecording", {}).get("id"), "status": "completed"}, None, False),
     ("C3 update_calendarEventParticipant", "update_calendar_event_participant", lambda s, r: {"id": s.get("calendarEventParticipant", {}).get("id"), "displayName": f"t{r}-CalPart-Upd"}, None, False),
     ("C3 update_messageParticipant", "update_message_participant", lambda s, r: {"id": s.get("messageParticipant", {}).get("id"), "displayName": f"t{r}-MsgPart-Upd"}, None, False),
 ]
@@ -495,9 +495,9 @@ PHASE4_TESTS = [
     # Bulk updates (15 resources)
     ("bulk_update_company", "update_companies", lambda s, r: {"ids": [s.get("company", {}).get("id"), s.get("company", {}).get("id")], "name": f"t{r}-Company-Upd"}, None, False),
     ("bulk_update_person", "update_people", lambda s, r: {"ids": [s.get("person", {}).get("id"), s.get("person", {}).get("id")], "jobTitle": f"t{r}-Engineer"}, None, False),
-    ("bulk_update_opportunity", "update_opportunities", lambda s, r: {"ids": [s.get("opportunity", {}).get("id"), s.get("opportunity", {}).get("id")], "stage": "SCREENING"}, None, False),
+    ("bulk_update_opportunity", "update_opportunities", lambda s, r: {"ids": [s.get("opportunity", {}).get("id"), s.get("opportunity", {}).get("id")], "stage": "screening"}, None, False),
     ("bulk_update_note", "update_notes", lambda s, r: {"ids": [s.get("note", {}).get("id"), s.get("note", {}).get("id")], "title": f"t{r}-Note-Upd"}, None, False),
-    ("bulk_update_task", "update_tasks", lambda s, r: {"ids": [s.get("task", {}).get("id"), s.get("task", {}).get("id")], "status": "IN_PROGRESS"}, None, False),
+    ("bulk_update_task", "update_tasks", lambda s, r: {"ids": [s.get("task", {}).get("id"), s.get("task", {}).get("id")], "status": "in_progress"}, None, False),
     ("bulk_update_messageThread", "update_message_threads", lambda s, r: {"ids": [s.get("messageThread", {}).get("id"), s.get("messageThread", {}).get("id")], "subject": f"t{r}-Thread-Upd"}, None, False),
     ("bulk_update_calendarEvent", "update_calendar_events", lambda s, r: {"ids": [s.get("calendarEvent", {}).get("id"), s.get("calendarEvent", {}).get("id")], "title": f"t{r}-CalEvent-Upd"}, None, False),
     ("bulk_update_message", "update_messages", lambda s, r: {"ids": [s.get("message", {}).get("id"), s.get("message", {}).get("id")], "subject": f"t{r}-Message-Upd"}, None, False),
@@ -505,7 +505,7 @@ PHASE4_TESTS = [
     ("bulk_update_taskTarget", "update_task_targets", lambda s, r: {"ids": [s.get("taskTarget", {}).get("id"), s.get("taskTarget", {}).get("id")]}, None, False),
     ("bulk_update_timelineActivity", "update_timeline_activities", lambda s, r: {"ids": [s.get("timelineActivity", {}).get("id"), s.get("timelineActivity", {}).get("id")], "name": f"t{r}-Timeline-Upd"}, None, False),
     ("bulk_update_attachment", "update_attachments", lambda s, r: {"ids": [s.get("attachment", {}).get("id"), s.get("attachment", {}).get("id")], "name": f"t{r}-Attachment-Upd"}, None, False),
-    ("bulk_update_callRecording", "update_call_recordings", lambda s, r: {"ids": [s.get("callRecording", {}).get("id"), s.get("callRecording", {}).get("id")], "status": "COMPLETED"}, None, False),
+    ("bulk_update_callRecording", "update_call_recordings", lambda s, r: {"ids": [s.get("callRecording", {}).get("id"), s.get("callRecording", {}).get("id")], "status": "completed"}, None, False),
     ("bulk_update_calendarEventParticipant", "update_calendar_event_participants", lambda s, r: {"ids": [s.get("calendarEventParticipant", {}).get("id"), s.get("calendarEventParticipant", {}).get("id")], "displayName": f"t{r}-CalPart-Upd"}, None, False),
     ("bulk_update_messageParticipant", "update_message_participants", lambda s, r: {"ids": [s.get("messageParticipant", {}).get("id"), s.get("messageParticipant", {}).get("id")], "displayName": f"t{r}-MsgPart-Upd"}, None, False),
     # Bulk deletes (15 resources)

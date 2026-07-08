@@ -136,7 +136,7 @@ class UpdateCompanyParam(BaseModel):
     linkedinLink: LinkModel | None = None
     annualRevenue: MoneyModel | None = None
     accountOwnerId: Optional[str] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -148,7 +148,7 @@ class CreatePersonParam(BaseModel):
     jobTitle: str = ""
     companyId: str = ""
     avatarUrl: str = ""
-    position: int = 0
+    position: float = 0
 
 
 class UpdatePersonParam(BaseModel):
@@ -160,7 +160,7 @@ class UpdatePersonParam(BaseModel):
     linkedinLink: LinkModel | None = None
     companyId: Optional[str] = None
     avatarUrl: Optional[str] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -182,7 +182,7 @@ class UpdateOpportunityParam(BaseModel):
     companyId: Optional[str] = None
     pointOfContactId: Optional[str] = None
     ownerId: Optional[str] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -197,7 +197,7 @@ class UpdateNoteParam(BaseModel):
     id: Optional[str] = None
     title: Optional[str] = None
     bodyV2: dict | None = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -218,7 +218,7 @@ class UpdateTaskParam(BaseModel):
     status: Optional[str] = None
     dueAt: Optional[str] = None
     assigneeId: Optional[str] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -234,7 +234,7 @@ class UpdateWorkflowParam(BaseModel):
     name: Optional[str] = None
     statuses: Optional[list[str]] = None
     lastPublishedVersionId: Optional[str] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -252,7 +252,7 @@ class UpdateWorkspaceMemberParam(BaseModel):
     dateFormat: Optional[str] = None
     timeFormat: Optional[str] = None
     numberFormat: Optional[str] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -353,7 +353,7 @@ class UpdateTimelineActivityParam(BaseModel):
     targetMessageListId: Optional[str] = None
     targetMessageCampaignId: Optional[str] = None
     properties: Optional[PropertiesModel] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -379,7 +379,7 @@ class UpdateCalendarEventParam(BaseModel):
     location: Optional[str] = None
     conferenceLink: LinkModel | None = None
     iCalUid: Optional[str] = None
-    position: Optional[int] = None
+    position: Optional[float] = None
 
 
 # =============================================================================
@@ -608,7 +608,7 @@ async def update_company(
     linkedinLink: LinkModel | None = None,
     annualRevenue: MoneyModel | None = None,
     accountOwnerId: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing company record.
@@ -621,7 +621,7 @@ async def update_company(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         annualRevenue: Updated annual revenue with amountMicros and currencyCode.
         accountOwnerId: Updated account owner workspace member ID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateCompanyParam(
         id=id, name=name, domainName=domainName, address=address,
@@ -643,7 +643,7 @@ async def update_companies(
     linkedinLink: LinkModel | None = None,
     annualRevenue: MoneyModel | None = None,
     accountOwnerId: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update company records by IDs.
@@ -656,7 +656,7 @@ async def update_companies(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         annualRevenue: Updated annual revenue with amountMicros and currencyCode.
         accountOwnerId: Updated account owner workspace member ID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateCompanyParam(
         name=name, domainName=domainName, address=address,
@@ -728,7 +728,7 @@ async def create_person(
     jobTitle: str = "",
     companyId: str = "",
     avatarUrl: str = "",
-    position: int = 0,
+    position: float = 0,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Create a new person record.
@@ -739,7 +739,7 @@ async def create_person(
         jobTitle: Job title of the person.
         companyId: ID of the associated company.
         avatarUrl: URL to the person's avatar image.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = CreatePersonParam(
         name=name, emails=emails, jobTitle=jobTitle, companyId=companyId,
@@ -761,7 +761,7 @@ async def update_person(
     linkedinLink: LinkModel | None = None,
     companyId: Optional[str] = None,
     avatarUrl: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing person record.
@@ -775,7 +775,7 @@ async def update_person(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         companyId: Updated associated company ID.
         avatarUrl: Updated avatar URL.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdatePersonParam(
         id=id, name=name, emails=emails, phones=phones, jobTitle=jobTitle,
@@ -797,7 +797,7 @@ async def update_people(
     linkedinLink: LinkModel | None = None,
     companyId: Optional[str] = None,
     avatarUrl: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update person records by IDs.
@@ -811,7 +811,7 @@ async def update_people(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         companyId: Updated associated company ID.
         avatarUrl: Updated avatar URL.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdatePersonParam(
         name=name, emails=emails, phones=phones, jobTitle=jobTitle,
@@ -908,7 +908,7 @@ async def update_opportunity(
     companyId: Optional[str] = None,
     pointOfContactId: Optional[str] = None,
     ownerId: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing opportunity record.
@@ -922,7 +922,7 @@ async def update_opportunity(
         companyId: Updated associated company ID.
         pointOfContactId: Updated associated person ID.
         ownerId: Updated owner workspace member ID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateOpportunityParam(
         name=name, amount=amount, closeDate=closeDate, stage=_enum_upper(stage),
@@ -944,7 +944,7 @@ async def update_opportunities(
     companyId: Optional[str] = None,
     pointOfContactId: Optional[str] = None,
     ownerId: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update opportunity records by IDs.
@@ -958,7 +958,7 @@ async def update_opportunities(
         companyId: Updated associated company ID.
         pointOfContactId: Updated associated person ID.
         ownerId: Updated owner workspace member ID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateOpportunityParam(
         name=name, amount=amount, closeDate=closeDate, stage=_enum_upper(stage),
@@ -1046,7 +1046,7 @@ async def update_note(
     id: str,
     title: Optional[str] = None,
     markdown: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing note record.
@@ -1055,7 +1055,7 @@ async def update_note(
         id: The unique ID of the note to update.
         title: Updated title of the note.
         markdown: Updated markdown-formatted body text.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(id=id, title=title, bodyV2=bodyV2, position=position)
@@ -1070,7 +1070,7 @@ async def update_notes(
     ids: list[str],
     title: Optional[str] = None,
     markdown: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update note records by IDs.
@@ -1079,7 +1079,7 @@ async def update_notes(
         ids: List of note IDs (UUID format, e.g. "a1b2c3d4-..") to update.
         title: Updated title of the note.
         markdown: Updated markdown-formatted body text.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(title=title, bodyV2=bodyV2, position=position)
@@ -1177,7 +1177,7 @@ async def update_task(
     status: Optional[str] = None,
     dueAt: Optional[str] = None,
     assigneeId: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing task record.
@@ -1189,7 +1189,7 @@ async def update_task(
         status: todo, in_progress, or done
         dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         assigneeId: Updated assignee workspace member ID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
@@ -1210,7 +1210,7 @@ async def update_tasks(
     status: Optional[str] = None,
     dueAt: Optional[str] = None,
     assigneeId: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update task records by IDs.
@@ -1222,7 +1222,7 @@ async def update_tasks(
         status: todo, in_progress, or done
         dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         assigneeId: Updated assignee workspace member ID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
@@ -1312,7 +1312,7 @@ async def update_workflow(
     name: Optional[str] = None,
     statuses: list[str] = None,
     lastPublishedVersionId: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing workflow record.
@@ -1322,7 +1322,7 @@ async def update_workflow(
         name: Updated name of the workflow.
         statuses: draft, active, or deactivated
         lastPublishedVersionId: Updated last published version ID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateWorkflowParam(
         id=id, name=name, statuses=_enum_upper_list(statuses), lastPublishedVersionId=lastPublishedVersionId, position=position,
@@ -1387,7 +1387,7 @@ async def update_workspace_member(
     dateFormat: Optional[str] = None,
     timeFormat: Optional[str] = None,
     numberFormat: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing workspace member record.
@@ -1404,7 +1404,7 @@ async def update_workspace_member(
         dateFormat: system, month_first, day_first, or year_first
         timeFormat: system, hour_24, or hour_12
         numberFormat: system, commas_and_dot, spaces_and_comma, dots_and_comma, or apostrophe_and_dot
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateWorkspaceMemberParam(
         id=id, name=name, colorScheme=_enum_capitalize(colorScheme), locale=locale, avatarUrl=avatarUrl,
@@ -1430,7 +1430,7 @@ async def update_workspace_members(
     dateFormat: Optional[str] = None,
     timeFormat: Optional[str] = None,
     numberFormat: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update workspace member records by IDs.
@@ -1447,7 +1447,7 @@ async def update_workspace_members(
         dateFormat: system, month_first, day_first, or year_first
         timeFormat: system, hour_24, or hour_12
         numberFormat: system, commas_and_dot, spaces_and_comma, dots_and_comma, or apostrophe_and_dot
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateWorkspaceMemberParam(
         name=name, colorScheme=_enum_capitalize(colorScheme), locale=locale, avatarUrl=avatarUrl,
@@ -1994,7 +1994,7 @@ async def update_timeline_activity(
     targetMessageListId: Optional[str] = None,
     targetMessageCampaignId: Optional[str] = None,
     properties: Optional[PropertiesModel] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing timeline activity record.
@@ -2018,7 +2018,7 @@ async def update_timeline_activity(
         targetMessageListId: Updated associated message list ID.
         targetMessageCampaignId: Updated associated message campaign ID.
         properties: Properties payload with before/after states and field diffs.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateTimelineActivityParam(
         id=id, name=name, happensAt=happensAt, workspaceMemberId=workspaceMemberId,
@@ -2056,7 +2056,7 @@ async def update_timeline_activities(
     targetMessageListId: Optional[str] = None,
     targetMessageCampaignId: Optional[str] = None,
     properties: Optional[PropertiesModel] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update timeline activity records by IDs.
@@ -2080,7 +2080,7 @@ async def update_timeline_activities(
         targetMessageListId: Updated associated message list ID.
         targetMessageCampaignId: Updated associated message campaign ID.
         properties: Properties payload with before/after states and field diffs.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateTimelineActivityParam(
         name=name, happensAt=happensAt, workspaceMemberId=workspaceMemberId,
@@ -2192,7 +2192,7 @@ async def update_calendar_event(
     location: Optional[str] = None,
     conferenceLink: LinkModel | None = None,
     iCalUid: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing calendar event record.
@@ -2208,7 +2208,7 @@ async def update_calendar_event(
         location: Updated event location as plain text.
         conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
         iCalUid: Updated iCal UID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateCalendarEventParam(
         id=id, title=title, isCanceled=isCanceled, isFullDay=isFullDay,
@@ -2233,7 +2233,7 @@ async def update_calendar_events(
     location: Optional[str] = None,
     conferenceLink: LinkModel | None = None,
     iCalUid: Optional[str] = None,
-    position: Optional[int] = None,
+    position: Optional[float] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update calendar event records by IDs.
@@ -2249,7 +2249,7 @@ async def update_calendar_events(
         location: Updated event location as plain text.
         conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
         iCalUid: Updated iCal UID.
-        position: Display position as a float. Lower values appear first.
+        position: Display position (0 to 1000000). Lower values appear first.
     """
     params = UpdateCalendarEventParam(
         title=title, isCanceled=isCanceled, isFullDay=isFullDay,

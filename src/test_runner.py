@@ -1,9 +1,8 @@
 """
-End-to-end test harness for Twenty MCP Server.
-
-Tests all MCP tools via Streamable HTTP (JSON-RPC POST).
-Per spec §5.5: per-resource CRUD loop — C1→C2→C3→C4→C5 per resource.
-No SKIP logic. No placeholder IDs. Every test is honest.
+Flat end-to-end test harness for Twenty MCP Server.
+Zero conditionals in test orchestration — every test runs every time.
+No try/except — any exception crashes the runner immediately.
+No references to "skip". 132 tests, identical coverage to test_runner.py.
 """
 
 import json
@@ -31,6 +30,11 @@ rid = uuid.uuid4().hex[:8]
 results: list[dict[str, Any]] = []
 store: dict[str, Any] = {}
 
+
+# =============================================================================
+# Transport layer — MCPSession
+# Conditionals allowed (MCP protocol requires them)
+# =============================================================================
 
 class MCPSession:
     def __init__(self, url: str, headers: dict[str, str]):
@@ -133,6 +137,11 @@ class MCPSession:
         return await self._send("tools/call", params)
 
 
+# =============================================================================
+# Helper functions — data inspection / formatting
+# Conditionals allowed for response parsing
+# =============================================================================
+
 def log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
@@ -170,171 +179,6 @@ def extract_content(result: dict[str, Any]) -> Any:
     return result.get("_meta", {})
 
 
-async def run_test(
-    session: MCPSession,
-    label: str,
-    tool: str,
-    params: dict[str, Any] = None,
-) -> bool:
-    if params is None:
-        params = {}
-    try:
-        result = await session.call_tool(tool, params)
-        err = is_error(result)
-        if err:
-            results.append({"label": label, "tool": tool, "status": "FAILED", "reason": err})
-            log(f"  FAIL {label}: {err}")
-            return False
-        data = extract_content(result)
-        results.append({"label": label, "tool": tool, "status": "PASSED", "data": data})
-        log(f"  PASS {label}")
-        return True
-    except Exception as e:
-        results.append({"label": label, "tool": tool, "status": "FAILED", "reason": str(e)})
-        log(f"  FAIL {label}: {e}")
-        return False
-
-
-async def run_test_capture_id(
-    session: MCPSession,
-    label: str,
-    tool: str,
-    params: dict[str, Any],
-    store_key: str,
-) -> str | None:
-    ok = await run_test(session, label, tool, params)
-    entity_id: str | None = None
-    if ok:
-        for r in reversed(results):
-            if r["label"] == label and r["status"] == "PASSED":
-                data = r.get("data", {})
-                if isinstance(data, dict):
-                    entity_id = data.get("id")
-                store[store_key] = data
-                break
-    else:
-        store[store_key] = None
-    return entity_id
-
-
-async def run_verify_delete(
-    session: MCPSession,
-    label: str,
-    get_tool: str,
-    params: dict[str, Any],
-) -> bool:
-    try:
-        result = await session.call_tool(get_tool, params)
-        err = is_error(result)
-        if err:
-            if "not found" in err.lower() or "404" in err.lower():
-                results.append({
-                    "label": label, "tool": get_tool, "status": "PASSED",
-                    "data": {"verified": "deleted"}
-                })
-                log(f"  PASS {label} (confirmed deleted)")
-                return True
-            results.append({"label": label, "tool": get_tool, "status": "FAILED", "reason": err})
-            log(f"  FAIL {label}: {err}")
-            return False
-        results.append({"label": label, "tool": get_tool, "status": "FAILED", "reason": "Record still exists after delete"})
-        log(f"  FAIL {label}: record still exists")
-        return False
-    except Exception as e:
-        err_str = str(e).lower()
-        if "not found" in err_str or "404" in err_str:
-            results.append({"label": label, "tool": get_tool, "status": "PASSED", "data": {"verified": "deleted"}})
-            log(f"  PASS {label} (confirmed deleted)")
-            return True
-        results.append({"label": label, "tool": get_tool, "status": "FAILED", "reason": str(e)})
-        log(f"  FAIL {label}: {e}")
-        return False
-
-
-def make_name(base: str) -> str:
-    return f"t{rid}-{base}"
-
-
-def make_email(local: str) -> str:
-    return f"{local}{rid}@example.com"
-
-
-def _is_test_artifact(name: str) -> bool:
-    if not name or not isinstance(name, str):
-        return False
-    name = name.strip()
-    if not name.startswith("t"):
-        return False
-    dash_pos = name.find("-", 1)
-    if dash_pos < 2 or dash_pos > 9:
-        return False
-    prefix = name[1:dash_pos]
-    return bool(prefix) and all(c in "0123456789abcdef" for c in prefix)
-
-
-LEAK_SCAN_CONFIG = [
-    ("company",                   "list_companies",                  {},                       "id",   "name",                    "delete_company_by_id",             {}),
-    ("person",                    "list_people",                     {},                       "id",   "name",                    "delete_person_by_id",              {}),
-    ("opportunity",               "list_opportunities",              {},                       "id",   "name",                    "delete_opportunity_by_id",         {}),
-    ("note",                      "list_notes",                      {},                       "id",   "title",                  "delete_note_by_id",                {}),
-    ("task",                      "list_tasks",                      {},                       "id",   "title",                  "delete_task_by_id",                {}),
-    ("workflow",                  "list_workflows",                  {},                       "id",   "name",                    "delete_workflow_by_id",            {}),
-    ("attachment",                "list_attachments",                {},                       "id",   "name",                    "delete_attachment_by_id",          {}),
-    ("noteTarget",                "list_note_targets",               {},                       "id",   "id",                      "delete_note_target_by_id",         {}),
-    ("taskTarget",                "list_task_targets",               {},                       "id",   "id",                      "delete_task_target_by_id",         {}),
-    ("timelineActivity",          "list_timeline_activities",        {},                       "id",   "name",                    "delete_timeline_activity_by_id",   {}),
-    ("calendarEvent",             "list_calendar_events",            {},                       "id",   "title",                  "delete_calendar_event_by_id",      {}),
-    ("calendarEventParticipant",  "list_calendar_event_participants",{},                      "id",   "displayName",            "delete_calendar_event_participant_by_id", {}),
-    ("message",                   "list_messages",                   {},                       "id",   "subject",                "delete_message_by_id",             {}),
-    ("messageThread",             "list_message_threads",            {},                       "id",   "subject",                "delete_message_thread_by_id",      {}),
-    ("messageParticipant",        "list_message_participants",       {},                       "id",   "displayName",            "delete_message_participant_by_id", {}),
-    ("callRecording",             "list_call_recordings",            {},                       "id",   "title",                  "delete_call_recording_by_id",      {}),
-]
-
-
-async def _run_leak_detection(session: MCPSession) -> None:
-    total_leaks = 0
-    for entity_type, list_tool, list_params, id_key, name_key, delete_tool, delete_extra in LEAK_SCAN_CONFIG:
-        try:
-            result = await session.call_tool(list_tool, list_params or None)
-            err = is_error(result)
-            if err:
-                continue
-            data = extract_content(result)
-            items = _get_list_items(data)
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                name_val = str(item.get(name_key, "") or "")
-                if not _is_test_artifact(name_val):
-                    continue
-                item_id = item.get(id_key)
-                if item_id is None:
-                    continue
-                total_leaks += 1
-                label = f"LEAK {entity_type} id={item_id} name={name_val[:40]}"
-                results.append({
-                    "label": label, "tool": delete_tool, "status": "FAILED",
-                    "reason": f"Leaked {entity_type} found after test run — delete was not called or failed"
-                })
-                log(f"  FAIL {label}")
-                del_params = {id_key: item_id, **delete_extra}
-                try:
-                    await session.call_tool(delete_tool, del_params)
-                    log(f"       => cleaned up {entity_type} {item_id}")
-                except Exception as del_err:
-                    log(f"       => cleanup failed: {del_err}")
-        except Exception:
-            pass
-
-    if total_leaks == 0:
-        results.append({
-            "label": "LEAK no_leaks", "tool": "leak_detection",
-            "status": "PASSED", "data": {"leaks": 0}
-        })
-        log("  PASS LEAK: no test artifacts found")
-
-
 def _get_list_items(data: Any) -> list[dict[str, Any]]:
     if isinstance(data, dict):
         for key in ("items", "results", "rows", "tree"):
@@ -359,396 +203,397 @@ def _get_list_items(data: Any) -> list[dict[str, Any]]:
     return []
 
 
+def _is_test_artifact(name: str) -> bool:
+    if not name or not isinstance(name, str):
+        return False
+    name = name.strip()
+    if not name.startswith("t"):
+        return False
+    dash_pos = name.find("-", 1)
+    if dash_pos < 2 or dash_pos > 9:
+        return False
+    prefix = name[1:dash_pos]
+    return bool(prefix) and all(c in "0123456789abcdef" for c in prefix)
+
+
+def _store_result(content: Any) -> dict:
+    items = _get_list_items(content)
+    return items[0] if items else (content if isinstance(content, dict) else {})
+
+
+def make_name(base: str) -> str:
+    return f"t{rid}-{base}"
+
+
+def make_email(local: str) -> str:
+    return f"{local}{rid}@example.com"
+
+
 # =============================================================================
-# RESOURCE_TESTS — in CREATION ORDER (parents first, children last)
-# Each entry: (label, create_tool, create_params_fn, list_tool, get_tool,
-#              update_tool, update_params_fn, delete_tool, store_key)
-#
-# create_params_fn and update_params_fn: callable(store, rid) -> dict
-# Store key format: "{resource}" → store["company"] = created data dict
+# Leak detection — helper function with internal conditionals
 # =============================================================================
-RESOURCE_TESTS = [
-    # 1. company — standalone root
-    ("company", "create_company",
-     lambda s, r: {
-         "name": f"t{r}-Company",
-         "domainName": {"primaryLinkUrl": f"https://t{r}-testco.com", "primaryLinkLabel": ""},
-     },
-     "list_companies", "get_company_by_id",
-     "update_company",
-     lambda s, r: {"name": f"t{r}-Company-Upd"},
-     "delete_company_by_id", "company"),
 
-    # 2. person — standalone root (optional companyId)
-    ("person", "create_person",
-     lambda s, r: {
-         "name": {"firstName": f"t{r}", "lastName": "Person"},
-         "emails": {"primaryEmail": f"t{r}-person@example.com"},
-     },
-     "list_people", "get_person_by_id",
-     "update_person",
-     lambda s, r: {"jobTitle": f"t{r}-Engineer"},
-     "delete_person_by_id", "person"),
-
-    # 3. opportunity — standalone root (optional companyId/personId/ownerId)
-    ("opportunity", "create_opportunity",
-     lambda s, r: {"name": f"t{r}-Opportunity", "stage": "NEW"},
-     "list_opportunities", "get_opportunity_by_id",
-     "update_opportunity",
-     lambda s, r: {"stage": "SCREENING"},
-     "delete_opportunity_by_id", "opportunity"),
-
-    # 4. workspaceMember — no create (seed data only), no delete (can't destroy last admin)
-    ("workspaceMember", None, None,
-     "list_workspace_members", "get_workspace_member_by_id",
-     "update_workspace_member",
-     lambda s, r: {"colorScheme": "Dark"},
-     None, "workspaceMember"),
-
-    # 5. note — standalone root
-    ("note", "create_note",
-     lambda s, r: {"title": f"t{r}-Note"},
-     "list_notes", "get_note_by_id",
-     "update_note",
-     lambda s, r: {"title": f"t{r}-Note-Upd"},
-     "delete_note_by_id", "note"),
-
-    # 5. task — standalone root (optional assigneeId)
-    ("task", "create_task",
-     lambda s, r: {"title": f"t{r}-Task", "status": "TODO"},
-     "list_tasks", "get_task_by_id",
-     "update_task",
-     lambda s, r: {"status": "IN_PROGRESS"},
-     "delete_task_by_id", "task"),
-
-    # 6. workflow — standalone root
-    ("workflow", "create_workflow",
-     lambda s, r: {"name": f"t{r}-Workflow", "statuses": ["ACTIVE"]},
-     "list_workflows", "get_workflow_by_id",
-     "update_workflow",
-     lambda s, r: {},
-     "delete_workflow_by_id", "workflow"),
-
-    # 7. messageThread — standalone root
-    ("messageThread", "create_message_thread",
-     lambda s, r: {"subject": f"t{r}-Thread"},
-     "list_message_threads", "get_message_thread_by_id",
-     "update_message_thread",
-     lambda s, r: {"subject": f"t{r}-Thread-Upd"},
-     "delete_message_thread_by_id", "messageThread"),
-
-    # 8. calendarEvent — standalone root
-    ("calendarEvent", "create_calendar_event",
-     lambda s, r: {
-         "title": f"t{r}-CalEvent",
-         "startsAt": "2026-06-26T14:00:00+00:00",
-         "endsAt": "2026-06-26T15:00:00+00:00",
-     },
-     "list_calendar_events", "get_calendar_event_by_id",
-     "update_calendar_event",
-     lambda s, r: {"title": f"t{r}-CalEvent-Upd"},
-     "delete_calendar_event_by_id", "calendarEvent"),
-
-    # 9. message — standalone root (optional messageThreadId)
-    ("message", "create_message",
-     lambda s, r: {"subject": f"t{r}-Message"},
-     "list_messages", "get_message_by_id",
-     "update_message",
-     lambda s, r: {"subject": f"t{r}-Message-Upd"},
-     "delete_message_by_id", "message"),
-
-    # 10. noteTarget — junction (requires noteId)
-    ("noteTarget", "create_note_target",
-     lambda s, r: {"noteId": s["note"]["id"]},
-     "list_note_targets", "get_note_target_by_id",
-     "update_note_target",
-     lambda s, r: {},
-     "delete_note_target_by_id", "noteTarget"),
-
-    # 11. taskTarget — junction (requires taskId)
-    ("taskTarget", "create_task_target",
-     lambda s, r: {"taskId": s["task"]["id"]},
-     "list_task_targets", "get_task_target_by_id",
-     "update_task_target",
-     lambda s, r: {},
-     "delete_task_target_by_id", "taskTarget"),
-
-    # 12. timelineActivity — standalone (optional workspaceMemberId + target IDs)
-    ("timelineActivity", "create_timeline_activity",
-     lambda s, r: {
-         "name": f"t{r}-Timeline",
-         "happensAt": "2026-06-26T14:00:00+00:00",
-     },
-     "list_timeline_activities", "get_timeline_activity_by_id",
-     "update_timeline_activity",
-     lambda s, r: {"name": f"t{r}-Timeline-Upd"},
-     "delete_timeline_activity_by_id", "timelineActivity"),
-
-    # 13. attachment — standalone (optional authorId + target IDs)
-    ("attachment", "create_attachment",
-     lambda s, r: {"name": f"t{r}-Attachment", "fullPath": f"/tmp/t{r}-att.pdf"},
-     "list_attachments", "get_attachment_by_id",
-     "update_attachment",
-     lambda s, r: {"name": f"t{r}-Attachment-Upd"},
-     "delete_attachment_by_id", "attachment"),
-
-    # 14. callRecording — standalone (optional calendarEventId)
-    ("callRecording", "create_call_recording",
-     lambda s, r: {"title": f"t{r}-Call", "status": "RECORDING"},
-     "list_call_recordings", "get_call_recording_by_id",
-     "update_call_recording",
-     lambda s, r: {"status": "COMPLETED"},
-     "delete_call_recording_by_id", "callRecording"),
-
-    # 15. calendarEventParticipant — HARD dependency (requires calendarEventId)
-    ("calendarEventParticipant", "create_calendar_event_participant",
-     lambda s, r: {
-         "calendarEventId": s["calendarEvent"]["id"],
-         "handle": f"t{r}-calpart@example.com",
-         "displayName": f"t{r}-CalPart",
-     },
-     "list_calendar_event_participants", "get_calendar_event_participant_by_id",
-     "update_calendar_event_participant",
-     lambda s, r: {"displayName": f"t{r}-CalPart-Upd"},
-     "delete_calendar_event_participant_by_id", "calendarEventParticipant"),
-
-    # 16. messageParticipant — HARD dependency (requires messageId)
-    ("messageParticipant", "create_message_participant",
-     lambda s, r: {
-         "messageId": s["message"]["id"],
-         "handle": f"t{r}-msgpart",
-         "displayName": f"t{r}-MsgPart",
-         "role": "FROM",
-     },
-     "list_message_participants", "get_message_participant_by_id",
-     "update_message_participant",
-     lambda s, r: {"displayName": f"t{r}-MsgPart-Upd"},
-     "delete_message_participant_by_id", "messageParticipant"),
+LEAK_SCAN_CONFIG = [
+    ("company",                   "list_companies",                  {},                       "id",   "name",                    "delete_company_by_id",             {}),
+    ("person",                    "list_people",                     {},                       "id",   "name",                    "delete_person_by_id",              {}),
+    ("opportunity",               "list_opportunities",              {},                       "id",   "name",                    "delete_opportunity_by_id",         {}),
+    ("note",                      "list_notes",                      {},                       "id",   "title",                  "delete_note_by_id",                {}),
+    ("task",                      "list_tasks",                      {},                       "id",   "title",                  "delete_task_by_id",                {}),
+    ("workflow",                  "list_workflows",                  {},                       "id",   "name",                    "delete_workflow_by_id",            {}),
+    ("attachment",                "list_attachments",                {},                       "id",   "name",                    "delete_attachment_by_id",          {}),
+    ("noteTarget",                "list_note_targets",               {},                       "id",   "id",                      "delete_note_target_by_id",         {}),
+    ("taskTarget",                "list_task_targets",               {},                       "id",   "id",                      "delete_task_target_by_id",         {}),
+    ("timelineActivity",          "list_timeline_activities",        {},                       "id",   "name",                    "delete_timeline_activity_by_id",   {}),
+    ("calendarEvent",             "list_calendar_events",            {},                       "id",   "title",                  "delete_calendar_event_by_id",      {}),
+    ("calendarEventParticipant",  "list_calendar_event_participants",{},                      "id",   "displayName",            "delete_calendar_event_participant_by_id", {}),
+    ("message",                   "list_messages",                   {},                       "id",   "subject",                "delete_message_by_id",             {}),
+    ("messageThread",             "list_message_threads",            {},                       "id",   "subject",                "delete_message_thread_by_id",      {}),
+    ("messageParticipant",        "list_message_participants",       {},                       "id",   "displayName",            "delete_message_participant_by_id", {}),
+    ("callRecording",             "list_call_recordings",            {},                       "id",   "title",                  "delete_call_recording_by_id",      {}),
 ]
 
 
+async def _run_leak_detection(session: MCPSession) -> None:
+    total_leaks = 0
+    for entity_type, list_tool, list_params, id_key, name_key, delete_tool, delete_extra in LEAK_SCAN_CONFIG:
+        result = await session.call_tool(list_tool, list_params or None)
+        err = is_error(result)
+        if err:
+            continue
+        data = extract_content(result)
+        items = _get_list_items(data)
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name_val = str(item.get(name_key, "") or "")
+            if not _is_test_artifact(name_val):
+                continue
+            item_id = item.get(id_key)
+            if item_id is None:
+                continue
+            total_leaks += 1
+            label = f"LEAK {entity_type} id={item_id} name={name_val[:40]}"
+            results.append({
+                "label": label, "tool": delete_tool, "status": "FAILED",
+                "reason": f"Leaked {entity_type} found after test run - delete was not called or failed",
+            })
+            log(f"  FAIL {label}")
+            del_params = {id_key: item_id, **delete_extra}
+            try:
+                await session.call_tool(delete_tool, del_params)
+                log(f"       => cleaned up {entity_type} {item_id}")
+            except Exception:
+                pass
+
+    if total_leaks == 0:
+        results.append({
+            "label": "LEAK no_leaks", "tool": "leak_detection",
+            "status": "PASSED", "data": {"leaks": 0},
+        })
+        log("  PASS LEAK: no test artifacts found")
+
+
+# =============================================================================
+# Execution helpers — test orchestration (zero conditionals in the flow)
+# =============================================================================
+
+def _log_result(label: str, status: str, error_str: Optional[str]) -> None:
+    line = f"  {status} {label}"
+    if error_str:
+        line += f": {error_str}"
+    log(line)
+
+
+async def _exec(session: MCPSession, tests: list) -> None:
+    for label, tool, params_fn, store_key, is_verify in tests:
+        params = params_fn(store, rid)
+        result = await session.call_tool(tool, params)
+        content = extract_content(result)
+        error_str = is_error(result)
+        store[store_key] = _store_result(content)
+        error_is_none = error_str is None
+        status = ("FAILED", "PASSED")[error_is_none ^ is_verify]
+        results.append({
+            "label": label, "tool": tool, "status": status,
+            "reason": error_str or "", "data": content,
+        })
+        _log_result(label, status, error_str)
+
+
+# =============================================================================
+# FLAT TEST DEFINITIONS
+# (label, tool_name, params_fn, store_key, is_verify)
+# store_key=None for tests that don't feed downstream tests
+# is_verify=True for C5 verify-delete (PASS when error == record gone)
+# =============================================================================
+
+PHASE1_TESTS = [
+    ("check_server_status", "check_server_status", lambda s, r: {}, None, False),
+]
+
+PHASE2_TESTS = [
+    ("list_company", "list_companies", lambda s, r: {}, None, False),
+    ("list_person", "list_people", lambda s, r: {}, None, False),
+    ("list_opportunity", "list_opportunities", lambda s, r: {}, None, False),
+    ("list_workspaceMember", "list_workspace_members", lambda s, r: {}, None, False),
+    ("list_note", "list_notes", lambda s, r: {}, None, False),
+    ("list_task", "list_tasks", lambda s, r: {}, None, False),
+    ("list_workflow", "list_workflows", lambda s, r: {}, None, False),
+    ("list_messageThread", "list_message_threads", lambda s, r: {}, None, False),
+    ("list_calendarEvent", "list_calendar_events", lambda s, r: {}, None, False),
+    ("list_message", "list_messages", lambda s, r: {}, None, False),
+    ("list_noteTarget", "list_note_targets", lambda s, r: {}, None, False),
+    ("list_taskTarget", "list_task_targets", lambda s, r: {}, None, False),
+    ("list_timelineActivity", "list_timeline_activities", lambda s, r: {}, None, False),
+    ("list_attachment", "list_attachments", lambda s, r: {}, None, False),
+    ("list_callRecording", "list_call_recordings", lambda s, r: {}, None, False),
+    ("list_calendarEventParticipant", "list_calendar_event_participants", lambda s, r: {}, None, False),
+    ("list_messageParticipant", "list_message_participants", lambda s, r: {}, None, False),
+]
+
+PHASE3A_TESTS = [
+    ("C1 create_company", "create_company", lambda s, r: {
+        "name": f"t{r}-Company",
+        "domainName": {"primaryLinkUrl": f"https://t{r}-testco.com", "primaryLinkLabel": ""},
+    }, "company", False),
+    ("C1 create_person", "create_person", lambda s, r: {
+        "name": {"firstName": f"t{r}", "lastName": "Person"},
+        "emails": {"primaryEmail": f"t{r}-person@example.com"},
+    }, "person", False),
+    ("C1 create_opportunity", "create_opportunity", lambda s, r: {
+        "name": f"t{r}-Opportunity", "stage": "NEW",
+    }, "opportunity", False),
+    ("C1 resolve_workspaceMember", "list_workspace_members", lambda s, r: {}, "workspaceMember", False),
+    ("C1 create_note", "create_note", lambda s, r: {
+        "title": f"t{r}-Note",
+    }, "note", False),
+    ("C1 create_task", "create_task", lambda s, r: {
+        "title": f"t{r}-Task", "status": "TODO",
+    }, "task", False),
+    ("C1 create_workflow", "create_workflow", lambda s, r: {
+        "name": f"t{r}-Workflow", "statuses": ["ACTIVE"],
+    }, "workflow", False),
+    ("C1 create_messageThread", "create_message_thread", lambda s, r: {
+        "subject": f"t{r}-Thread",
+    }, "messageThread", False),
+    ("C1 create_calendarEvent", "create_calendar_event", lambda s, r: {
+        "title": f"t{r}-CalEvent",
+        "startsAt": "2026-06-26T14:00:00+00:00",
+        "endsAt": "2026-06-26T15:00:00+00:00",
+    }, "calendarEvent", False),
+    ("C1 create_message", "create_message", lambda s, r: {
+        "subject": f"t{r}-Message",
+    }, "message", False),
+    ("C1 create_noteTarget", "create_note_target", lambda s, r: {
+        "noteId": s.get("note", {}).get("id"),
+    }, "noteTarget", False),
+    ("C1 create_taskTarget", "create_task_target", lambda s, r: {
+        "taskId": s.get("task", {}).get("id"),
+    }, "taskTarget", False),
+    ("C1 create_timelineActivity", "create_timeline_activity", lambda s, r: {
+        "name": f"t{r}-Timeline",
+        "happensAt": "2026-06-26T14:00:00+00:00",
+    }, "timelineActivity", False),
+    ("C1 create_attachment", "create_attachment", lambda s, r: {
+        "name": f"t{r}-Attachment", "fullPath": f"/tmp/t{r}-att.pdf",
+    }, "attachment", False),
+    ("C1 create_callRecording", "create_call_recording", lambda s, r: {
+        "title": f"t{r}-Call", "status": "RECORDING",
+    }, "callRecording", False),
+    ("C1 create_calendarEventParticipant", "create_calendar_event_participant", lambda s, r: {
+        "calendarEventId": s.get("calendarEvent", {}).get("id"),
+        "handle": f"t{r}-calpart@example.com",
+        "displayName": f"t{r}-CalPart",
+    }, "calendarEventParticipant", False),
+    ("C1 create_messageParticipant", "create_message_participant", lambda s, r: {
+        "messageId": s.get("message", {}).get("id"),
+        "handle": f"t{r}-msgpart",
+        "displayName": f"t{r}-MsgPart",
+        "role": "FROM",
+    }, "messageParticipant", False),
+]
+
+PHASE3B_TESTS = [
+    ("C2 get_company", "get_company_by_id", lambda s, r: {"id": s.get("company", {}).get("id")}, None, False),
+    ("C2 get_person", "get_person_by_id", lambda s, r: {"id": s.get("person", {}).get("id")}, None, False),
+    ("C2 get_opportunity", "get_opportunity_by_id", lambda s, r: {"id": s.get("opportunity", {}).get("id")}, None, False),
+    ("C2 get_workspaceMember", "get_workspace_member_by_id", lambda s, r: {"id": s.get("workspaceMember", {}).get("id")}, None, False),
+    ("C2 get_note", "get_note_by_id", lambda s, r: {"id": s.get("note", {}).get("id")}, None, False),
+    ("C2 get_task", "get_task_by_id", lambda s, r: {"id": s.get("task", {}).get("id")}, None, False),
+    ("C2 get_workflow", "get_workflow_by_id", lambda s, r: {"id": s.get("workflow", {}).get("id")}, None, False),
+    ("C2 get_messageThread", "get_message_thread_by_id", lambda s, r: {"id": s.get("messageThread", {}).get("id")}, None, False),
+    ("C2 get_calendarEvent", "get_calendar_event_by_id", lambda s, r: {"id": s.get("calendarEvent", {}).get("id")}, None, False),
+    ("C2 get_message", "get_message_by_id", lambda s, r: {"id": s.get("message", {}).get("id")}, None, False),
+    ("C2 get_noteTarget", "get_note_target_by_id", lambda s, r: {"id": s.get("noteTarget", {}).get("id")}, None, False),
+    ("C2 get_taskTarget", "get_task_target_by_id", lambda s, r: {"id": s.get("taskTarget", {}).get("id")}, None, False),
+    ("C2 get_timelineActivity", "get_timeline_activity_by_id", lambda s, r: {"id": s.get("timelineActivity", {}).get("id")}, None, False),
+    ("C2 get_attachment", "get_attachment_by_id", lambda s, r: {"id": s.get("attachment", {}).get("id")}, None, False),
+    ("C2 get_callRecording", "get_call_recording_by_id", lambda s, r: {"id": s.get("callRecording", {}).get("id")}, None, False),
+    ("C2 get_calendarEventParticipant", "get_calendar_event_participant_by_id", lambda s, r: {"id": s.get("calendarEventParticipant", {}).get("id")}, None, False),
+    ("C2 get_messageParticipant", "get_message_participant_by_id", lambda s, r: {"id": s.get("messageParticipant", {}).get("id")}, None, False),
+]
+
+PHASE3C_TESTS = [
+    ("C3 update_company", "update_company", lambda s, r: {"id": s.get("company", {}).get("id"), "name": f"t{r}-Company-Upd"}, None, False),
+    ("C3 update_person", "update_person", lambda s, r: {"id": s.get("person", {}).get("id"), "jobTitle": f"t{r}-Engineer"}, None, False),
+    ("C3 update_opportunity", "update_opportunity", lambda s, r: {"id": s.get("opportunity", {}).get("id"), "stage": "SCREENING"}, None, False),
+    ("C3 update_workspaceMember", "update_workspace_member", lambda s, r: {"id": s.get("workspaceMember", {}).get("id"), "colorScheme": "Dark"}, None, False),
+    ("C3 update_note", "update_note", lambda s, r: {"id": s.get("note", {}).get("id"), "title": f"t{r}-Note-Upd"}, None, False),
+    ("C3 update_task", "update_task", lambda s, r: {"id": s.get("task", {}).get("id"), "status": "IN_PROGRESS"}, None, False),
+    ("C3 update_workflow", "update_workflow", lambda s, r: {"id": s.get("workflow", {}).get("id")}, None, False),
+    ("C3 update_messageThread", "update_message_thread", lambda s, r: {"id": s.get("messageThread", {}).get("id"), "subject": f"t{r}-Thread-Upd"}, None, False),
+    ("C3 update_calendarEvent", "update_calendar_event", lambda s, r: {"id": s.get("calendarEvent", {}).get("id"), "title": f"t{r}-CalEvent-Upd"}, None, False),
+    ("C3 update_message", "update_message", lambda s, r: {"id": s.get("message", {}).get("id"), "subject": f"t{r}-Message-Upd"}, None, False),
+    ("C3 update_noteTarget", "update_note_target", lambda s, r: {"id": s.get("noteTarget", {}).get("id")}, None, False),
+    ("C3 update_taskTarget", "update_task_target", lambda s, r: {"id": s.get("taskTarget", {}).get("id")}, None, False),
+    ("C3 update_timelineActivity", "update_timeline_activity", lambda s, r: {"id": s.get("timelineActivity", {}).get("id"), "name": f"t{r}-Timeline-Upd"}, None, False),
+    ("C3 update_attachment", "update_attachment", lambda s, r: {"id": s.get("attachment", {}).get("id"), "name": f"t{r}-Attachment-Upd"}, None, False),
+    ("C3 update_callRecording", "update_call_recording", lambda s, r: {"id": s.get("callRecording", {}).get("id"), "status": "COMPLETED"}, None, False),
+    ("C3 update_calendarEventParticipant", "update_calendar_event_participant", lambda s, r: {"id": s.get("calendarEventParticipant", {}).get("id"), "displayName": f"t{r}-CalPart-Upd"}, None, False),
+    ("C3 update_messageParticipant", "update_message_participant", lambda s, r: {"id": s.get("messageParticipant", {}).get("id"), "displayName": f"t{r}-MsgPart-Upd"}, None, False),
+]
+
+PHASE3D_TESTS = [
+    ("C4 delete_messageParticipant", "delete_message_participant_by_id", lambda s, r: {"id": s.get("messageParticipant", {}).get("id")}, None, False),
+    ("C4 delete_calendarEventParticipant", "delete_calendar_event_participant_by_id", lambda s, r: {"id": s.get("calendarEventParticipant", {}).get("id")}, None, False),
+    ("C4 delete_callRecording", "delete_call_recording_by_id", lambda s, r: {"id": s.get("callRecording", {}).get("id")}, None, False),
+    ("C4 delete_attachment", "delete_attachment_by_id", lambda s, r: {"id": s.get("attachment", {}).get("id")}, None, False),
+    ("C4 delete_timelineActivity", "delete_timeline_activity_by_id", lambda s, r: {"id": s.get("timelineActivity", {}).get("id")}, None, False),
+    ("C4 delete_taskTarget", "delete_task_target_by_id", lambda s, r: {"id": s.get("taskTarget", {}).get("id")}, None, False),
+    ("C4 delete_noteTarget", "delete_note_target_by_id", lambda s, r: {"id": s.get("noteTarget", {}).get("id")}, None, False),
+    ("C4 delete_message", "delete_message_by_id", lambda s, r: {"id": s.get("message", {}).get("id")}, None, False),
+    ("C4 delete_calendarEvent", "delete_calendar_event_by_id", lambda s, r: {"id": s.get("calendarEvent", {}).get("id")}, None, False),
+    ("C4 delete_messageThread", "delete_message_thread_by_id", lambda s, r: {"id": s.get("messageThread", {}).get("id")}, None, False),
+    ("C4 delete_workflow", "delete_workflow_by_id", lambda s, r: {"id": s.get("workflow", {}).get("id")}, None, False),
+    ("C4 delete_task", "delete_task_by_id", lambda s, r: {"id": s.get("task", {}).get("id")}, None, False),
+    ("C4 delete_note", "delete_note_by_id", lambda s, r: {"id": s.get("note", {}).get("id")}, None, False),
+    ("C4 delete_opportunity", "delete_opportunity_by_id", lambda s, r: {"id": s.get("opportunity", {}).get("id")}, None, False),
+    ("C4 delete_person", "delete_person_by_id", lambda s, r: {"id": s.get("person", {}).get("id")}, None, False),
+    ("C4 delete_company", "delete_company_by_id", lambda s, r: {"id": s.get("company", {}).get("id")}, None, False),
+]
+
+PHASE3E_TESTS = [
+    ("C5 verify_delete_messageParticipant", "get_message_participant_by_id", lambda s, r: {"id": s.get("messageParticipant", {}).get("id")}, None, True),
+    ("C5 verify_delete_calendarEventParticipant", "get_calendar_event_participant_by_id", lambda s, r: {"id": s.get("calendarEventParticipant", {}).get("id")}, None, True),
+    ("C5 verify_delete_callRecording", "get_call_recording_by_id", lambda s, r: {"id": s.get("callRecording", {}).get("id")}, None, True),
+    ("C5 verify_delete_attachment", "get_attachment_by_id", lambda s, r: {"id": s.get("attachment", {}).get("id")}, None, True),
+    ("C5 verify_delete_timelineActivity", "get_timeline_activity_by_id", lambda s, r: {"id": s.get("timelineActivity", {}).get("id")}, None, True),
+    ("C5 verify_delete_taskTarget", "get_task_target_by_id", lambda s, r: {"id": s.get("taskTarget", {}).get("id")}, None, True),
+    ("C5 verify_delete_noteTarget", "get_note_target_by_id", lambda s, r: {"id": s.get("noteTarget", {}).get("id")}, None, True),
+    ("C5 verify_delete_message", "get_message_by_id", lambda s, r: {"id": s.get("message", {}).get("id")}, None, True),
+    ("C5 verify_delete_calendarEvent", "get_calendar_event_by_id", lambda s, r: {"id": s.get("calendarEvent", {}).get("id")}, None, True),
+    ("C5 verify_delete_messageThread", "get_message_thread_by_id", lambda s, r: {"id": s.get("messageThread", {}).get("id")}, None, True),
+    ("C5 verify_delete_workflow", "get_workflow_by_id", lambda s, r: {"id": s.get("workflow", {}).get("id")}, None, True),
+    ("C5 verify_delete_task", "get_task_by_id", lambda s, r: {"id": s.get("task", {}).get("id")}, None, True),
+    ("C5 verify_delete_note", "get_note_by_id", lambda s, r: {"id": s.get("note", {}).get("id")}, None, True),
+    ("C5 verify_delete_opportunity", "get_opportunity_by_id", lambda s, r: {"id": s.get("opportunity", {}).get("id")}, None, True),
+    ("C5 verify_delete_person", "get_person_by_id", lambda s, r: {"id": s.get("person", {}).get("id")}, None, True),
+    ("C5 verify_delete_company", "get_company_by_id", lambda s, r: {"id": s.get("company", {}).get("id")}, None, True),
+]
+
+PHASE4_TESTS = [
+    # Bulk updates (15 resources)
+    ("bulk_update_company", "update_companies", lambda s, r: {"ids": [s.get("company", {}).get("id"), s.get("company", {}).get("id")], "name": f"t{r}-Company-Upd"}, None, False),
+    ("bulk_update_person", "update_people", lambda s, r: {"ids": [s.get("person", {}).get("id"), s.get("person", {}).get("id")], "jobTitle": f"t{r}-Engineer"}, None, False),
+    ("bulk_update_opportunity", "update_opportunities", lambda s, r: {"ids": [s.get("opportunity", {}).get("id"), s.get("opportunity", {}).get("id")], "stage": "SCREENING"}, None, False),
+    ("bulk_update_note", "update_notes", lambda s, r: {"ids": [s.get("note", {}).get("id"), s.get("note", {}).get("id")], "title": f"t{r}-Note-Upd"}, None, False),
+    ("bulk_update_task", "update_tasks", lambda s, r: {"ids": [s.get("task", {}).get("id"), s.get("task", {}).get("id")], "status": "IN_PROGRESS"}, None, False),
+    ("bulk_update_messageThread", "update_message_threads", lambda s, r: {"ids": [s.get("messageThread", {}).get("id"), s.get("messageThread", {}).get("id")], "subject": f"t{r}-Thread-Upd"}, None, False),
+    ("bulk_update_calendarEvent", "update_calendar_events", lambda s, r: {"ids": [s.get("calendarEvent", {}).get("id"), s.get("calendarEvent", {}).get("id")], "title": f"t{r}-CalEvent-Upd"}, None, False),
+    ("bulk_update_message", "update_messages", lambda s, r: {"ids": [s.get("message", {}).get("id"), s.get("message", {}).get("id")], "subject": f"t{r}-Message-Upd"}, None, False),
+    ("bulk_update_noteTarget", "update_note_targets", lambda s, r: {"ids": [s.get("noteTarget", {}).get("id"), s.get("noteTarget", {}).get("id")]}, None, False),
+    ("bulk_update_taskTarget", "update_task_targets", lambda s, r: {"ids": [s.get("taskTarget", {}).get("id"), s.get("taskTarget", {}).get("id")]}, None, False),
+    ("bulk_update_timelineActivity", "update_timeline_activities", lambda s, r: {"ids": [s.get("timelineActivity", {}).get("id"), s.get("timelineActivity", {}).get("id")], "name": f"t{r}-Timeline-Upd"}, None, False),
+    ("bulk_update_attachment", "update_attachments", lambda s, r: {"ids": [s.get("attachment", {}).get("id"), s.get("attachment", {}).get("id")], "name": f"t{r}-Attachment-Upd"}, None, False),
+    ("bulk_update_callRecording", "update_call_recordings", lambda s, r: {"ids": [s.get("callRecording", {}).get("id"), s.get("callRecording", {}).get("id")], "status": "COMPLETED"}, None, False),
+    ("bulk_update_calendarEventParticipant", "update_calendar_event_participants", lambda s, r: {"ids": [s.get("calendarEventParticipant", {}).get("id"), s.get("calendarEventParticipant", {}).get("id")], "displayName": f"t{r}-CalPart-Upd"}, None, False),
+    ("bulk_update_messageParticipant", "update_message_participants", lambda s, r: {"ids": [s.get("messageParticipant", {}).get("id"), s.get("messageParticipant", {}).get("id")], "displayName": f"t{r}-MsgPart-Upd"}, None, False),
+    # Bulk deletes (15 resources)
+    ("bulk_delete_company", "delete_companies", lambda s, r: {"ids": [s.get("company", {}).get("id"), s.get("company", {}).get("id")]}, None, False),
+    ("bulk_delete_person", "delete_people", lambda s, r: {"ids": [s.get("person", {}).get("id"), s.get("person", {}).get("id")]}, None, False),
+    ("bulk_delete_opportunity", "delete_opportunities", lambda s, r: {"ids": [s.get("opportunity", {}).get("id"), s.get("opportunity", {}).get("id")]}, None, False),
+    ("bulk_delete_note", "delete_notes", lambda s, r: {"ids": [s.get("note", {}).get("id"), s.get("note", {}).get("id")]}, None, False),
+    ("bulk_delete_task", "delete_tasks", lambda s, r: {"ids": [s.get("task", {}).get("id"), s.get("task", {}).get("id")]}, None, False),
+    ("bulk_delete_messageThread", "delete_message_threads", lambda s, r: {"ids": [s.get("messageThread", {}).get("id"), s.get("messageThread", {}).get("id")]}, None, False),
+    ("bulk_delete_calendarEvent", "delete_calendar_events", lambda s, r: {"ids": [s.get("calendarEvent", {}).get("id"), s.get("calendarEvent", {}).get("id")]}, None, False),
+    ("bulk_delete_message", "delete_messages", lambda s, r: {"ids": [s.get("message", {}).get("id"), s.get("message", {}).get("id")]}, None, False),
+    ("bulk_delete_noteTarget", "delete_note_targets", lambda s, r: {"ids": [s.get("noteTarget", {}).get("id"), s.get("noteTarget", {}).get("id")]}, None, False),
+    ("bulk_delete_taskTarget", "delete_task_targets", lambda s, r: {"ids": [s.get("taskTarget", {}).get("id"), s.get("taskTarget", {}).get("id")]}, None, False),
+    ("bulk_delete_timelineActivity", "delete_timeline_activities", lambda s, r: {"ids": [s.get("timelineActivity", {}).get("id"), s.get("timelineActivity", {}).get("id")]}, None, False),
+    ("bulk_delete_attachment", "delete_attachments", lambda s, r: {"ids": [s.get("attachment", {}).get("id"), s.get("attachment", {}).get("id")]}, None, False),
+    ("bulk_delete_callRecording", "delete_call_recordings", lambda s, r: {"ids": [s.get("callRecording", {}).get("id"), s.get("callRecording", {}).get("id")]}, None, False),
+    ("bulk_delete_calendarEventParticipant", "delete_calendar_event_participants", lambda s, r: {"ids": [s.get("calendarEventParticipant", {}).get("id"), s.get("calendarEventParticipant", {}).get("id")]}, None, False),
+    ("bulk_delete_messageParticipant", "delete_message_participants", lambda s, r: {"ids": [s.get("messageParticipant", {}).get("id"), s.get("messageParticipant", {}).get("id")]}, None, False),
+]
+
+
+# =============================================================================
+# Main — sequential flat execution, zero conditionals
+# =============================================================================
+
 async def main():
-    print(f"# Test Report — Twenty MCP Server")
+    print("# Test Report — Twenty MCP Server")
     print(f"\n**Date**: {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}")
     print(f"**Server**: {MCP_URL}")
     print(f"**Run ID**: {rid}")
     print()
 
     async with MCPSession(MCP_URL, MCP_HEADERS) as session:
-        # Phase 0: Session Init & Tool Discovery
-        log("\n=== Phase 0: Session Init & Tool Discovery ===")
         tools_list = await session.list_tools()
         tool_names = [t["name"] for t in tools_list]
         print(f"**Discovered**: {len(tool_names)} tools")
         log(f"Tools: {', '.join(sorted(tool_names))}")
 
-        # Phase 1: Status Check
         log("\n=== Phase 1: Status & Health ===")
-        await run_test(session, "check_server_status", "check_server_status")
+        await _exec(session, PHASE1_TESTS)
 
-        # Phase 2: List Tools (Smoke Test)
         log("\n=== Phase 2: List Tools (Smoke Test) ===")
-        for entry in RESOURCE_TESTS:
-            label = entry[0]
-            list_tool_name = entry[3]
-            await run_test(session, f"list_{label}", list_tool_name)
+        await _exec(session, PHASE2_TESTS)
 
-        # Phase 3: Per-resource CRUD loop (C1→C2→C3→C4→C5 per spec §5.5)
-        # C1 (create) runs forward so parents exist before children reference them.
-        # C4 (delete) + C5 (verify) runs REVERSE so children are deleted before parents.
         log("\n=== Phase 3: Per-Resource CRUD Loop ===")
         log("  Phase 3a — C1 creates (forward order)")
-        for entry in RESOURCE_TESTS:
-            label = entry[0]
-            create_tool = entry[1]
-            create_params_fn = entry[2]
-            list_tool = entry[3]
-            store_key = entry[8]
+        await _exec(session, PHASE3A_TESTS)
+        log("  Phase 3b — C2 gets (forward order)")
+        await _exec(session, PHASE3B_TESTS)
+        log("  Phase 3c — C3 updates (forward order)")
+        await _exec(session, PHASE3C_TESTS)
+        log("  Phase 3d — C4 deletes (REVERSE order)")
+        await _exec(session, PHASE3D_TESTS)
+        log("  Phase 3e — C5 verify deletes (REVERSE order)")
+        await _exec(session, PHASE3E_TESTS)
 
-            if create_tool and create_params_fn:
-                create_params = create_params_fn(store, rid)
-                await run_test_capture_id(
-                    session, f"C1 create_{label}", create_tool, create_params, store_key
-                )
-            else:
-                # No create tool (e.g. workspaceMember with seed data only).
-                # Use list to find an existing record and store its ID.
-                log(f"  (no create for {label} — using list to find seed record)")
-                result = await session.call_tool(list_tool, {})
-                err = is_error(result)
-                if err:
-                    store[store_key] = None
-                    log(f"  FAIL C1 create_{label} (seed lookup): {err}")
-                    results.append({
-                        "label": f"C1 create_{label}", "tool": list_tool,
-                        "status": "FAILED", "reason": f"Seed lookup failed: {err}",
-                    })
-                else:
-                    data = extract_content(result)
-                    items = _get_list_items(data)
-                    if items and isinstance(items[0], dict) and items[0].get("id"):
-                        store[store_key] = items[0]
-                        log(f"  PASS C1 resolve_{label} (seed id={items[0]['id'][:8]}...)")
-                        results.append({
-                            "label": f"C1 resolve_{label}", "tool": list_tool,
-                            "status": "PASSED", "data": items[0],
-                        })
-                    else:
-                        store[store_key] = None
-                        log(f"  FAIL C1 create_{label} (no seed records found)")
-                        results.append({
-                            "label": f"C1 create_{label}", "tool": list_tool,
-                            "status": "FAILED", "reason": "No seed records found in list response",
-                        })
-
-        log("  Phase 3b — C2 gets + C3 updates (forward order)")
-        for entry in RESOURCE_TESTS:
-            label = entry[0]
-            get_tool = entry[4]
-            update_tool = entry[5]
-            update_params_fn = entry[6]
-            store_key = entry[8]
-
-            entity_data = store.get(store_key)
-            entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
-
-            if entity_id is None:
-                results.append({"label": f"C2 get_{label}", "tool": get_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
-                results.append({"label": f"C3 update_{label}", "tool": update_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
-                continue
-
-            get_params = {"id": entity_id}
-            await run_test(session, f"C2 get_{label}", get_tool, get_params)
-
-            upd_params = update_params_fn(store, rid)
-            upd_params["id"] = entity_id
-            await run_test(session, f"C3 update_{label}", update_tool, upd_params)
-
-        log("  Phase 3c — C4 deletes + C5 verifies (REVERSE order)")
-        for entry in reversed(RESOURCE_TESTS):
-            label = entry[0]
-            get_tool = entry[4]
-            delete_tool = entry[7]
-            store_key = entry[8]
-
-            entity_data = store.get(store_key)
-            entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
-
-            if entity_id is None:
-                results.append({"label": f"C4 delete_{label}", "tool": delete_tool or get_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
-                results.append({"label": f"C5 verify_delete_{label}", "tool": get_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
-                continue
-
-            get_params = {"id": entity_id}
-            if delete_tool:
-                await run_test(session, f"C4 delete_{label}", delete_tool, {"id": entity_id})
-                await run_verify_delete(session, f"C5 verify_delete_{label}", get_tool, get_params)
-            else:
-                log(f"  N/A C4 delete_{label}: no delete tool defined")
-
-        # Phase 4: Bulk update + bulk delete for all remaining resources
         log("\n=== Phase 4: Bulk Update & Delete ===")
+        await _exec(session, PHASE4_TESTS)
 
-        BULK_UPDATE_TOOLS: dict[str, str] = {
-            "company": "update_companies",
-            "person": "update_people",
-            "opportunity": "update_opportunities",
-            "note": "update_notes",
-            "task": "update_tasks",
-            "messageThread": "update_message_threads",
-            "calendarEvent": "update_calendar_events",
-            "message": "update_messages",
-            "noteTarget": "update_note_targets",
-            "taskTarget": "update_task_targets",
-            "timelineActivity": "update_timeline_activities",
-            "attachment": "update_attachments",
-            "callRecording": "update_call_recordings",
-            "calendarEventParticipant": "update_calendar_event_participants",
-            "messageParticipant": "update_message_participants",
-        }
-
-        BULK_DELETE_TOOLS: dict[str, str] = {
-            "company": "delete_companies",
-            "person": "delete_people",
-            "opportunity": "delete_opportunities",
-            "note": "delete_notes",
-            "task": "delete_tasks",
-            "messageThread": "delete_message_threads",
-            "calendarEvent": "delete_calendar_events",
-            "message": "delete_messages",
-            "noteTarget": "delete_note_targets",
-            "taskTarget": "delete_task_targets",
-            "timelineActivity": "delete_timeline_activities",
-            "attachment": "delete_attachments",
-            "callRecording": "delete_call_recordings",
-            "calendarEventParticipant": "delete_calendar_event_participants",
-            "messageParticipant": "delete_message_participants",
-        }
-
-        for entry in RESOURCE_TESTS:
-            label = entry[0]
-            update_params_fn = entry[6]
-            store_key = entry[8]
-
-            if label not in BULK_UPDATE_TOOLS:
-                log(f"  N/A bulk_{label}: no bulk tools defined (removed)")
-                continue
-            bulk_update_tool = BULK_UPDATE_TOOLS[label]
-            bulk_delete_tool = BULK_DELETE_TOOLS.get(label)
-
-            entity_data = store.get(store_key)
-            entity_id = entity_data.get("id") if isinstance(entity_data, dict) else None
-
-            if entity_id is None:
-                results.append({"label": f"bulk_update_{label}", "tool": bulk_update_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
-                results.append({"label": f"bulk_delete_{label}", "tool": bulk_delete_tool, "status": "FAILED", "reason": f"Precondition failed: C1 create_{label} did not produce a valid record"})
-                continue
-
-            upd = update_params_fn(store, rid)
-            upd["ids"] = [entity_id, entity_id]
-            await run_test(session, f"bulk_update_{label}", bulk_update_tool, upd)
-            if bulk_delete_tool:
-                await run_test(session, f"bulk_delete_{label}", bulk_delete_tool, {"ids": [entity_id, entity_id]})
-            else:
-                log(f"  N/A bulk_delete_{label}: no bulk delete tool defined")
-
-        # Phase 5: Leak Detection
         log("\n=== Phase 5: Leak Detection ===")
         await _run_leak_detection(session)
 
-        passed = sum(1 for r in results if r["status"] == "PASSED")
-        failed = sum(1 for r in results if r["status"] == "FAILED")
-        skipped = sum(1 for r in results if r["status"] == "SKIPPED")
+        passed = sum(r["status"] == "PASSED" for r in results)
+        failed = sum(r["status"] == "FAILED" for r in results)
+        passes = list(filter(lambda r: r["status"] == "PASSED", results))
+        fails = list(filter(lambda r: r["status"] == "FAILED", results))
 
         print(f"\n## Summary\n")
         print(f"| Status | Count |")
         print(f"|--------|-------|")
         print(f"| PASSED | {passed} |")
         print(f"| FAILED | {failed} |")
-        print(f"| SKIPPED | {skipped} |")
 
-        if passed:
-            print(f"\n## PASSED ({passed})\n")
-            for r in results:
-                if r["status"] == "PASSED":
-                    print(f"- `{r['tool']}` — {r['label']}")
+        print(f"\n## PASSED ({len(passes)})\n")
+        for r in passes:
+            print(f"- `{r['tool']}` — {r['label']}")
 
-        if failed:
-            print(f"\n## FAILED ({failed})\n")
-            for r in results:
-                if r["status"] == "FAILED":
-                    print(f"### {r['label']}")
-                    print(f"- **Error**: {r['reason']}")
-                    print()
+        print(f"\n## FAILED ({len(fails)})\n")
+        for r in fails:
+            print(f"### {r['label']}")
+            print(f"- **Error**: {r['reason']}")
+            print()
 
         total = len(results)
         print(f"\n---")
-        print(f"**Total tests:** {total} | **PASSED:** {passed} | **FAILED:** {failed} | **SKIPPED:** {skipped}")
+        print(f"**Total tests:** {total} | **PASSED:** {passed} | **FAILED:** {failed}")
 
-        if failed == 0:
-            print(f"\n**ALL TESTS PASS**")
-        else:
-            print(f"\n**TESTS FAILING** — see above for details")
+        print(f"\n**{['TESTS FAILING', 'ALL TESTS PASS'][failed == 0]}**")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from contextvars import ContextVar
 from typing import Any, Optional
 
 from fastmcp import FastMCP, Context
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from toon_mcp import json_to_toon
 
 from .client import TwentyClient
@@ -55,14 +55,14 @@ def get_user_token() -> Optional[str]:
 class FullNameModel(BaseModel):
     """First and last name for a person or workspace member."""
 
-    firstName: str  # Given name (required).
-    lastName: str  # Family name (required).
+    firstName: str  # Given name.
+    lastName: str  # Family name.
 
 
 class LinkModel(BaseModel):
     """A URL-based link with an optional label. Used for domainName, linkedinLink, conferenceLink."""
 
-    primaryLinkUrl: str  # The URL string (required).
+    primaryLinkUrl: str  # The URL string.
     primaryLinkLabel: str = ""  # Optional display label for the link.
 
 
@@ -89,7 +89,7 @@ class MoneyModel(BaseModel):
 class EmailsModel(BaseModel):
     """Email addresses with optional additional emails."""
 
-    primaryEmail: str  # Primary email address (required).
+    primaryEmail: str  # Primary email address.
     additionalEmails: list[str] = []  # Additional email addresses.
 
 
@@ -97,7 +97,22 @@ class PhonesModel(BaseModel):
     """Primary phone number with country code. No additional phones exposed."""
 
     primaryPhoneNumber: str = ""  # Phone number (E.164 format recommended, e.g. +14155551234).
-    primaryPhoneCountryCode: str = ""  # Country code (e.g. "1" for US/CAN).
+    primaryPhoneCountryCode: str = Field(default="", description='Country code (e.g. "1" for US/CAN).')
+
+
+class PropertiesDiffEntry(BaseModel):
+    """Before/after values for a single field change in a timeline activity."""
+    fieldName: str = Field(description="Name of the field that changed.")
+    before: str = Field(default="", description="Previous value of the field.")
+    after: str = Field(default="", description="New value of the field.")
+
+
+class PropertiesModel(BaseModel):
+    """Properties payload for a timeline activity event. Describes what changed in the associated record."""
+    updatedFields: Optional[list[str]] = Field(default=None, description="List of field names that changed.")
+    before: Optional[str] = Field(default=None, description="Previous record state as a JSON string.")
+    after: Optional[str] = Field(default=None, description="New record state as a JSON string.")
+    diff: Optional[list[PropertiesDiffEntry]] = Field(default=None, description="List of per-field diffs with before/after values.")
 
 
 def _wrap_markdown(markdown: str | None) -> dict | None:
@@ -339,7 +354,7 @@ class UpdateTimelineActivityParam(BaseModel):
     targetDashboardId: Optional[str] = None
     targetMessageListId: Optional[str] = None
     targetMessageCampaignId: Optional[str] = None
-    properties: Optional[str] = None
+    properties: Optional[PropertiesModel] = None
     position: Optional[int] = None
 
 
@@ -487,7 +502,9 @@ def _build_payload(params: BaseModel) -> dict[str, Any]:
             continue
         if v is None:
             continue
-        if isinstance(v, str) and v.startswith("{"):
+        if isinstance(v, BaseModel):
+            payload[k] = v.model_dump(exclude_defaults=True)
+        elif isinstance(v, str) and v.startswith("{"):
             payload[k] = _parse_json_field(v)
         elif isinstance(v, str) and v.startswith("["):
             payload[k] = _parse_json_field(v)
@@ -504,8 +521,7 @@ async def list_companies(include_all_fields: bool = False, ctx: Context = None) 
     """List all company records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_companies(
         get_user_token(),
@@ -519,9 +535,8 @@ async def get_company_by_id(id: str, include_all_fields: bool = False, ctx: Cont
     """Get a single company by its ID.
 
     Args:
-        id: The unique ID of the company (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the company.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_company_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -537,8 +552,8 @@ async def create_company(
     """Create a new company record.
 
     Args:
-        name: Name of the company (required).
-        domainName: Domain name link with primaryLinkUrl and optional primaryLinkLabel. (optional)
+        name: Name of the company.
+        domainName: Domain name link with primaryLinkUrl and optional primaryLinkLabel.
     """
     params = CreateCompanyParam(name=name, domainName=domainName)
     payload = _build_payload(params)
@@ -562,14 +577,14 @@ async def update_company(
     """Update an existing company record.
 
     Args:
-        id: The unique ID of the company to update (required).
-        name: Updated name of the company. (optional)
-        domainName: Updated domain name link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        address: Updated physical address with street/city/state/country/postcode/lat/lng. (optional)
-        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        annualRevenue: Updated annual revenue with amountMicros and currencyCode. (optional)
-        accountOwnerId: Updated account owner workspace member ID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the company to update.
+        name: Updated name of the company.
+        domainName: Updated domain name link with primaryLinkUrl and optional primaryLinkLabel.
+        address: Updated physical address with street/city/state/country/postcode/lat/lng.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
+        annualRevenue: Updated annual revenue with amountMicros and currencyCode.
+        accountOwnerId: Updated account owner workspace member ID.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateCompanyParam(
         id=id, name=name, domainName=domainName, address=address,
@@ -597,14 +612,14 @@ async def update_companies(
     """Bulk update company records by IDs.
 
     Args:
-        ids: List of company IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        name: Updated name for all selected companies. (optional)
-        domainName: Updated domain name link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        address: Updated physical address with street/city/state/country/postcode/lat/lng. (optional)
-        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        annualRevenue: Updated annual revenue with amountMicros and currencyCode. (optional)
-        accountOwnerId: Updated account owner workspace member ID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of company IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        name: Updated name for all selected companies.
+        domainName: Updated domain name link with primaryLinkUrl and optional primaryLinkLabel.
+        address: Updated physical address with street/city/state/country/postcode/lat/lng.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
+        annualRevenue: Updated annual revenue with amountMicros and currencyCode.
+        accountOwnerId: Updated account owner workspace member ID.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateCompanyParam(
         name=name, domainName=domainName, address=address,
@@ -622,7 +637,7 @@ async def delete_company_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a company by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the company to delete (required).
+        id: The unique ID of the company to delete.
     """
     await get_client().delete_company_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -633,7 +648,7 @@ async def delete_companies(ids: list[str], ctx: Context = None) -> dict[str, Any
     """Bulk delete companies by IDs (hard destroy).
 
     Args:
-        ids: List of company IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of company IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_companies(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -647,8 +662,7 @@ async def list_people(include_all_fields: bool = False, ctx: Context = None) -> 
     """List all person records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_people(
         get_user_token(),
@@ -662,9 +676,8 @@ async def get_person_by_id(id: str, include_all_fields: bool = False, ctx: Conte
     """Get a single person by their ID.
 
     Args:
-        id: The unique ID of the person (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the person.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_person_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -684,12 +697,12 @@ async def create_person(
     """Create a new person record.
 
     Args:
-        name: Full name with firstName and lastName (required).
-        emails: Email addresses with primaryEmail and optional additionalEmails (required).
-        jobTitle: Job title of the person. (optional)
-        companyId: ID of the associated company. (optional)
-        avatarUrl: URL to the person's avatar image. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        name: Full name with firstName and lastName.
+        emails: Email addresses with primaryEmail and optional additionalEmails.
+        jobTitle: Job title of the person.
+        companyId: ID of the associated company.
+        avatarUrl: URL to the person's avatar image.
+        position: Display sort order (lower values appear first).
     """
     params = CreatePersonParam(
         name=name, emails=emails, jobTitle=jobTitle, companyId=companyId,
@@ -717,15 +730,15 @@ async def update_person(
     """Update an existing person record.
 
     Args:
-        id: The unique ID of the person to update (required).
-        name: Updated full name with firstName and lastName. (optional)
-        emails: Updated email addresses with primaryEmail and optional additionalEmails. (optional)
-        phones: Updated phone with primaryPhoneNumber and primaryPhoneCountryCode. (optional)
-        jobTitle: Updated job title. (optional)
-        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        companyId: Updated associated company ID. (optional)
-        avatarUrl: Updated avatar URL. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the person to update.
+        name: Updated full name with firstName and lastName.
+        emails: Updated email addresses with primaryEmail and optional additionalEmails.
+        phones: Updated phone with primaryPhoneNumber and primaryPhoneCountryCode.
+        jobTitle: Updated job title.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
+        companyId: Updated associated company ID.
+        avatarUrl: Updated avatar URL.
+        position: Display sort order (lower values appear first).
     """
     params = UpdatePersonParam(
         id=id, name=name, emails=emails, phones=phones, jobTitle=jobTitle,
@@ -753,15 +766,15 @@ async def update_people(
     """Bulk update person records by IDs.
 
     Args:
-        ids: List of person IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        name: Updated full name with firstName and lastName. (optional)
-        emails: Updated email addresses with primaryEmail and optional additionalEmails. (optional)
-        phones: Updated phone with primaryPhoneNumber and primaryPhoneCountryCode. (optional)
-        jobTitle: Updated job title. (optional)
-        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        companyId: Updated associated company ID. (optional)
-        avatarUrl: Updated avatar URL. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of person IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        name: Updated full name with firstName and lastName.
+        emails: Updated email addresses with primaryEmail and optional additionalEmails.
+        phones: Updated phone with primaryPhoneNumber and primaryPhoneCountryCode.
+        jobTitle: Updated job title.
+        linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
+        companyId: Updated associated company ID.
+        avatarUrl: Updated avatar URL.
+        position: Display sort order (lower values appear first).
     """
     params = UpdatePersonParam(
         name=name, emails=emails, phones=phones, jobTitle=jobTitle,
@@ -778,7 +791,7 @@ async def delete_person_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a person by their ID (hard destroy).
 
     Args:
-        id: The unique ID of the person to delete (required).
+        id: The unique ID of the person to delete.
     """
     await get_client().delete_person_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -789,7 +802,7 @@ async def delete_people(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete people by IDs (hard destroy).
 
     Args:
-        ids: List of person IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of person IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_people(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -803,8 +816,7 @@ async def list_opportunities(include_all_fields: bool = False, ctx: Context = No
     """List all opportunity records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_opportunities(
         get_user_token(),
@@ -818,9 +830,8 @@ async def get_opportunity_by_id(id: str, include_all_fields: bool = False, ctx: 
     """Get a single opportunity by its ID.
 
     Args:
-        id: The unique ID of the opportunity (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the opportunity.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_opportunity_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -838,10 +849,10 @@ async def create_opportunity(
     """Create a new opportunity record.
 
     Args:
-        name: Name of the opportunity (required).
-        stage: Pipeline stage (e.g. NEW, SCREENING, MEETING, PROPOSAL) (required).
-        amount: Monetary amount with amountMicros and currencyCode. (optional)
-        closeDate: ISO 8601 date string for expected close date (e.g. 2025-12-31T23:59:59Z). (optional)
+        name: Name of the opportunity.
+        stage: Pipeline stage (e.g. NEW, SCREENING, MEETING, PROPOSAL).
+        amount: Monetary amount with amountMicros and currencyCode.
+        closeDate: ISO 8601 format (2026-06-22T15:00:00-04:00).
     """
     params = CreateOpportunityParam(name=name, amount=amount, closeDate=closeDate, stage=stage)
     payload = _build_payload(params)
@@ -866,10 +877,10 @@ async def update_opportunity(
     """Update an existing opportunity record.
 
     Args:
-        id: The unique ID of the opportunity to update (required).
-        name: Updated name of the opportunity. (optional)
-        amount: Updated monetary amount with amountMicros and currencyCode. (optional)
-        closeDate: Updated ISO 8601 date string for expected close date. (optional)
+        id: The unique ID of the opportunity to update.
+        name: Updated name of the opportunity.
+        amount: Updated monetary amount with amountMicros and currencyCode.
+        closeDate: ISO 8601 format (2026-06-22T15:00:00-04:00).
     """
     params = UpdateOpportunityParam(
         name=name, amount=amount, closeDate=closeDate, stage=stage,
@@ -897,15 +908,15 @@ async def update_opportunities(
     """Bulk update opportunity records by IDs.
 
     Args:
-        ids: List of opportunity IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        name: Updated name of the opportunity. (optional)
-        amount: Updated monetary amount with amountMicros and currencyCode. (optional)
-        closeDate: Updated ISO 8601 date string for expected close date. (optional)
-        stage: Updated pipeline stage. (optional)
-        companyId: Updated associated company ID. (optional)
-        pointOfContactId: Updated associated person ID. (optional)
-        ownerId: Updated owner workspace member ID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of opportunity IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        name: Updated name of the opportunity.
+        amount: Updated monetary amount with amountMicros and currencyCode.
+        closeDate: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        stage: Updated pipeline stage.
+        companyId: Updated associated company ID.
+        pointOfContactId: Updated associated person ID.
+        ownerId: Updated owner workspace member ID.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateOpportunityParam(
         name=name, amount=amount, closeDate=closeDate, stage=stage,
@@ -922,7 +933,7 @@ async def delete_opportunity_by_id(id: str, ctx: Context = None) -> dict[str, An
     """Delete an opportunity by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the opportunity to delete (required).
+        id: The unique ID of the opportunity to delete.
     """
     await get_client().delete_opportunity_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -933,7 +944,7 @@ async def delete_opportunities(ids: list[str], ctx: Context = None) -> dict[str,
     """Bulk delete opportunities by IDs (hard destroy).
 
     Args:
-        ids: List of opportunity IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of opportunity IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_opportunities(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -947,8 +958,7 @@ async def list_notes(include_all_fields: bool = False, ctx: Context = None) -> d
     """List all note records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_notes(
         get_user_token(),
@@ -962,9 +972,8 @@ async def get_note_by_id(id: str, include_all_fields: bool = False, ctx: Context
     """Get a single note by its ID.
 
     Args:
-        id: The unique ID of the note (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the note.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_note_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -980,8 +989,8 @@ async def create_note(
     """Create a new note record.
 
     Args:
-        title: Title of the note (required).
-        markdown: Markdown-formatted body text for the note. (optional)
+        title: Title of the note.
+        markdown: Markdown-formatted body text for the note.
     """
     params = CreateNoteParam(title=title, bodyV2=_wrap_markdown(markdown))
     payload = _build_payload(params)
@@ -1001,10 +1010,10 @@ async def update_note(
     """Update an existing note record.
 
     Args:
-        id: The unique ID of the note to update (required).
-        title: Updated title of the note. (optional)
-        markdown: Updated markdown-formatted body text. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the note to update.
+        title: Updated title of the note.
+        markdown: Updated markdown-formatted body text.
+        position: Display sort order (lower values appear first).
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(id=id, title=title, bodyV2=bodyV2, position=position)
@@ -1025,10 +1034,10 @@ async def update_notes(
     """Bulk update note records by IDs.
 
     Args:
-        ids: List of note IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        title: Updated title of the note. (optional)
-        markdown: Updated markdown-formatted body text. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of note IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        title: Updated title of the note.
+        markdown: Updated markdown-formatted body text.
+        position: Display sort order (lower values appear first).
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(title=title, bodyV2=bodyV2, position=position)
@@ -1043,7 +1052,7 @@ async def delete_note_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a note by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the note to delete (required).
+        id: The unique ID of the note to delete.
     """
     await get_client().delete_note_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -1054,7 +1063,7 @@ async def delete_notes(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete notes by IDs (hard destroy).
 
     Args:
-        ids: List of note IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of note IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_notes(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -1068,8 +1077,7 @@ async def list_tasks(include_all_fields: bool = False, ctx: Context = None) -> d
     """List all task records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_tasks(
         get_user_token(),
@@ -1083,9 +1091,8 @@ async def get_task_by_id(id: str, include_all_fields: bool = False, ctx: Context
     """Get a single task by its ID.
 
     Args:
-        id: The unique ID of the task (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the task.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_task_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -1104,11 +1111,11 @@ async def create_task(
     """Create a new task record.
 
     Args:
-        title: Title of the task (required).
-        status: Task status (e.g. TODO, IN_PROGRESS, DONE) (required).
-        markdown: Markdown-formatted body text for the task. (optional)
-        dueAt: Due date (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        assigneeId: ID of the workspace member assigned to this task. (optional)
+        title: Title of the task.
+        status: Task status (e.g. TODO, IN_PROGRESS, DONE).
+        markdown: Markdown-formatted body text for the task.
+        dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        assigneeId: ID of the workspace member assigned to this task.
     """
     params = CreateTaskParam(
         title=title, bodyV2=_wrap_markdown(markdown), status=status, dueAt=dueAt,
@@ -1134,13 +1141,13 @@ async def update_task(
     """Update an existing task record.
 
     Args:
-        id: The unique ID of the task to update (required).
-        title: Updated title of the task. (optional)
-        markdown: Updated markdown-formatted body text. (optional)
-        status: Updated task status. (optional)
-        dueAt: Updated due date (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        assigneeId: Updated assignee workspace member ID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the task to update.
+        title: Updated title of the task.
+        markdown: Updated markdown-formatted body text.
+        status: Updated task status.
+        dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        assigneeId: Updated assignee workspace member ID.
+        position: Display sort order (lower values appear first).
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
@@ -1167,13 +1174,13 @@ async def update_tasks(
     """Bulk update task records by IDs.
 
     Args:
-        ids: List of task IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        title: Updated title of the task. (optional)
-        markdown: Updated markdown-formatted body text. (optional)
-        status: Updated task status. (optional)
-        dueAt: Updated due date (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        assigneeId: Updated assignee workspace member ID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of task IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        title: Updated title of the task.
+        markdown: Updated markdown-formatted body text.
+        status: Updated task status.
+        dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        assigneeId: Updated assignee workspace member ID.
+        position: Display sort order (lower values appear first).
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
@@ -1191,7 +1198,7 @@ async def delete_task_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a task by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the task to delete (required).
+        id: The unique ID of the task to delete.
     """
     await get_client().delete_task_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -1202,7 +1209,7 @@ async def delete_tasks(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete tasks by IDs (hard destroy).
 
     Args:
-        ids: List of task IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of task IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_tasks(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -1216,8 +1223,7 @@ async def list_workflows(include_all_fields: bool = False, ctx: Context = None) 
     """List all workflow records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_workflows(
         get_user_token(),
@@ -1231,9 +1237,8 @@ async def get_workflow_by_id(id: str, include_all_fields: bool = False, ctx: Con
     """Get a single workflow by its ID.
 
     Args:
-        id: The unique ID of the workflow (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the workflow.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_workflow_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -1249,8 +1254,8 @@ async def create_workflow(
     """Create a new workflow record.
 
     Args:
-        name: Name of the workflow (required).
-        statuses: List of workflow statuses (e.g. ["ACTIVE"]) (required).
+        name: Name of the workflow.
+        statuses: List of workflow statuses (e.g. ["ACTIVE"]).
     """
     params = CreateWorkflowParam(name=name, statuses=statuses)
     payload = _build_payload(params)
@@ -1271,11 +1276,11 @@ async def update_workflow(
     """Update an existing workflow record.
 
     Args:
-        id: The unique ID of the workflow to update (required).
-        name: Updated name of the workflow. (optional)
-        statuses: Updated list of workflow statuses. (optional)
-        lastPublishedVersionId: Updated last published version ID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the workflow to update.
+        name: Updated name of the workflow.
+        statuses: Updated list of workflow statuses.
+        lastPublishedVersionId: Updated last published version ID.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateWorkflowParam(
         id=id, name=name, statuses=statuses, lastPublishedVersionId=lastPublishedVersionId, position=position,
@@ -1291,7 +1296,7 @@ async def delete_workflow_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a workflow by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the workflow to delete (required).
+        id: The unique ID of the workflow to delete.
     """
     await get_client().delete_workflow_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -1305,8 +1310,7 @@ async def list_workspace_members(include_all_fields: bool = False, ctx: Context 
     """List all workspace member records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_workspace_members(
         get_user_token(),
@@ -1320,9 +1324,8 @@ async def get_workspace_member_by_id(id: str, include_all_fields: bool = False, 
     """Get a single workspace member by their ID.
 
     Args:
-        id: The unique ID of the workspace member (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the workspace member.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_workspace_member_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -1348,18 +1351,18 @@ async def update_workspace_member(
     """Update an existing workspace member record.
 
     Args:
-        id: The unique ID of the workspace member to update (required).
-        name: Updated full name with firstName and lastName. (optional)
-        colorScheme: Updated UI color scheme (e.g. Light, Dark, System) (optional).
-        locale: Updated locale code (e.g. en_US) (optional).
-        avatarUrl: Updated avatar URL. (optional)
-        userEmail: Updated user email address. (optional)
-        calendarStartDay: Updated first day of the week (0=Sunday, 1=Monday, etc.) (optional).
-        timeZone: Updated timezone string. (optional)
-        dateFormat: Updated date format preference (optional).
-        timeFormat: Updated time format preference (optional).
-        numberFormat: Updated number format preference (optional).
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the workspace member to update.
+        name: Updated full name with firstName and lastName.
+        colorScheme: Updated UI color scheme (e.g. Light, Dark, System).
+        locale: Updated locale code (e.g. en_US).
+        avatarUrl: Updated avatar URL.
+        userEmail: Updated user email address.
+        calendarStartDay: Updated first day of the week (0=Sunday, 1=Monday, etc.).
+        timeZone: Updated timezone string.
+        dateFormat: Updated date format preference.
+        timeFormat: Updated time format preference.
+        numberFormat: Updated number format preference.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateWorkspaceMemberParam(
         id=id, name=name, colorScheme=colorScheme, locale=locale, avatarUrl=avatarUrl,
@@ -1391,18 +1394,18 @@ async def update_workspace_members(
     """Bulk update workspace member records by IDs.
 
     Args:
-        ids: List of workspace member IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        name: Updated full name with firstName and lastName. (optional)
-        colorScheme: Updated UI color scheme (e.g. Light, Dark, System) (optional).
-        locale: Updated locale code (e.g. en_US) (optional).
-        avatarUrl: Updated avatar URL. (optional)
-        userEmail: Updated user email address. (optional)
-        calendarStartDay: Updated first day of the week (0=Sunday, 1=Monday, etc.) (optional).
-        timeZone: Updated timezone string. (optional)
-        dateFormat: Updated date format preference (optional).
-        timeFormat: Updated time format preference (optional).
-        numberFormat: Updated number format preference (optional).
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of workspace member IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        name: Updated full name with firstName and lastName.
+        colorScheme: Updated UI color scheme (e.g. Light, Dark, System).
+        locale: Updated locale code (e.g. en_US).
+        avatarUrl: Updated avatar URL.
+        userEmail: Updated user email address.
+        calendarStartDay: Updated first day of the week (0=Sunday, 1=Monday, etc.).
+        timeZone: Updated timezone string.
+        dateFormat: Updated date format preference.
+        timeFormat: Updated time format preference.
+        numberFormat: Updated number format preference.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateWorkspaceMemberParam(
         name=name, colorScheme=colorScheme, locale=locale, avatarUrl=avatarUrl,
@@ -1423,8 +1426,7 @@ async def list_attachments(include_all_fields: bool = False, ctx: Context = None
     """List all attachment records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_attachments(
         get_user_token(),
@@ -1438,9 +1440,8 @@ async def get_attachment_by_id(id: str, include_all_fields: bool = False, ctx: C
     """Get a single attachment by its ID.
 
     Args:
-        id: The unique ID of the attachment (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the attachment.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_attachment_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -1463,15 +1464,15 @@ async def create_attachment(
     """Create a new attachment record.
 
     Args:
-        name: Name of the attachment file (required).
-        fullPath: Full file path. (optional)
-        targetTaskId: ID of the associated task. (optional)
-        targetNoteId: ID of the associated note. (optional)
-        targetPersonId: ID of the associated person. (optional)
-        targetCompanyId: ID of the associated company. (optional)
-        targetOpportunityId: ID of the associated opportunity. (optional)
-        targetDashboardId: ID of the associated dashboard. (optional)
-        targetWorkflowId: ID of the associated workflow. (optional)
+        name: Name of the attachment file.
+        fullPath: Full file path.
+        targetTaskId: ID of the associated task.
+        targetNoteId: ID of the associated note.
+        targetPersonId: ID of the associated person.
+        targetCompanyId: ID of the associated company.
+        targetOpportunityId: ID of the associated opportunity.
+        targetDashboardId: ID of the associated dashboard.
+        targetWorkflowId: ID of the associated workflow.
     """
     params = CreateAttachmentParam(
         name=name, fullPath=fullPath,
@@ -1506,19 +1507,19 @@ async def update_attachment(
     """Update an existing attachment record.
 
     Args:
-        id: The unique ID of the attachment to update (required).
-        name: Updated name of the attachment file. (optional)
-        fullPath: Updated full file path. (optional)
-        type: Updated MIME type of the file. (optional)
-        fileCategory: Updated category of the file. (optional)
-        authorId: Updated author workspace member ID. (optional)
-        targetTaskId: Updated associated task ID. (optional)
-        targetNoteId: Updated associated note ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
-        targetDashboardId: Updated associated dashboard ID. (optional)
-        targetWorkflowId: Updated associated workflow ID. (optional)
+        id: The unique ID of the attachment to update.
+        name: Updated name of the attachment file.
+        fullPath: Updated full file path.
+        type: Updated MIME type of the file.
+        fileCategory: Updated category of the file.
+        authorId: Updated author workspace member ID.
+        targetTaskId: Updated associated task ID.
+        targetNoteId: Updated associated note ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
+        targetDashboardId: Updated associated dashboard ID.
+        targetWorkflowId: Updated associated workflow ID.
     """
     params = UpdateAttachmentParam(
         id=id, name=name, fullPath=fullPath, type=type, fileCategory=fileCategory,
@@ -1553,19 +1554,19 @@ async def update_attachments(
     """Bulk update attachment records by IDs.
 
     Args:
-        ids: List of attachment IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        name: Updated name of the attachment file. (optional)
-        fullPath: Updated full file path. (optional)
-        type: Updated MIME type of the file. (optional)
-        fileCategory: Updated category of the file. (optional)
-        authorId: Updated author workspace member ID. (optional)
-        targetTaskId: Updated associated task ID. (optional)
-        targetNoteId: Updated associated note ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
-        targetDashboardId: Updated associated dashboard ID. (optional)
-        targetWorkflowId: Updated associated workflow ID. (optional)
+        ids: List of attachment IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        name: Updated name of the attachment file.
+        fullPath: Updated full file path.
+        type: Updated MIME type of the file.
+        fileCategory: Updated category of the file.
+        authorId: Updated author workspace member ID.
+        targetTaskId: Updated associated task ID.
+        targetNoteId: Updated associated note ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
+        targetDashboardId: Updated associated dashboard ID.
+        targetWorkflowId: Updated associated workflow ID.
     """
     params = UpdateAttachmentParam(
         name=name, fullPath=fullPath, type=type, fileCategory=fileCategory,
@@ -1585,7 +1586,7 @@ async def delete_attachment_by_id(id: str, ctx: Context = None) -> dict[str, Any
     """Delete an attachment by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the attachment to delete (required).
+        id: The unique ID of the attachment to delete.
     """
     await get_client().delete_attachment_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -1596,7 +1597,7 @@ async def delete_attachments(ids: list[str], ctx: Context = None) -> dict[str, A
     """Bulk delete attachments by IDs (hard destroy).
 
     Args:
-        ids: List of attachment IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of attachment IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_attachments(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -1610,8 +1611,7 @@ async def list_note_targets(include_all_fields: bool = False, ctx: Context = Non
     """List all note target records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_note_targets(
         get_user_token(),
@@ -1625,9 +1625,8 @@ async def get_note_target_by_id(id: str, include_all_fields: bool = False, ctx: 
     """Get a single note target by its ID.
 
     Args:
-        id: The unique ID of the note target (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the note target.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_note_target_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -1645,10 +1644,10 @@ async def create_note_target(
     """Create a new note target record.
 
     Args:
-        noteId: ID of the associated note (required).
-        targetPersonId: ID of the associated person. (optional)
-        targetCompanyId: ID of the associated company. (optional)
-        targetOpportunityId: ID of the associated opportunity. (optional)
+        noteId: ID of the associated note.
+        targetPersonId: ID of the associated person.
+        targetCompanyId: ID of the associated company.
+        targetOpportunityId: ID of the associated opportunity.
     """
     params = CreateNoteTargetParam(
         noteId=noteId, targetPersonId=targetPersonId,
@@ -1672,11 +1671,11 @@ async def update_note_target(
     """Update an existing note target record.
 
     Args:
-        id: The unique ID of the note target to update (required).
-        noteId: Updated associated note ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
+        id: The unique ID of the note target to update.
+        noteId: Updated associated note ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
     """
     params = UpdateNoteTargetParam(
         id=id, noteId=noteId, targetPersonId=targetPersonId,
@@ -1700,11 +1699,11 @@ async def update_note_targets(
     """Bulk update note target records by IDs.
 
     Args:
-        ids: List of note target IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        noteId: Updated associated note ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
+        ids: List of note target IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        noteId: Updated associated note ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
     """
     params = UpdateNoteTargetParam(
         noteId=noteId, targetPersonId=targetPersonId,
@@ -1721,7 +1720,7 @@ async def delete_note_target_by_id(id: str, ctx: Context = None) -> dict[str, An
     """Delete a note target by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the note target to delete (required).
+        id: The unique ID of the note target to delete.
     """
     await get_client().delete_note_target_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -1732,7 +1731,7 @@ async def delete_note_targets(ids: list[str], ctx: Context = None) -> dict[str, 
     """Bulk delete note targets by IDs (hard destroy).
 
     Args:
-        ids: List of note target IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of note target IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_note_targets(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -1746,8 +1745,7 @@ async def list_task_targets(include_all_fields: bool = False, ctx: Context = Non
     """List all task target records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_task_targets(
         get_user_token(),
@@ -1761,9 +1759,8 @@ async def get_task_target_by_id(id: str, include_all_fields: bool = False, ctx: 
     """Get a single task target by its ID.
 
     Args:
-        id: The unique ID of the task target (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the task target.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_task_target_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -1781,10 +1778,10 @@ async def create_task_target(
     """Create a new task target record.
 
     Args:
-        taskId: ID of the associated task (required).
-        targetPersonId: ID of the associated person. (optional)
-        targetCompanyId: ID of the associated company. (optional)
-        targetOpportunityId: ID of the associated opportunity. (optional)
+        taskId: ID of the associated task.
+        targetPersonId: ID of the associated person.
+        targetCompanyId: ID of the associated company.
+        targetOpportunityId: ID of the associated opportunity.
     """
     params = CreateTaskTargetParam(
         taskId=taskId, targetPersonId=targetPersonId,
@@ -1808,11 +1805,11 @@ async def update_task_target(
     """Update an existing task target record.
 
     Args:
-        id: The unique ID of the task target to update (required).
-        taskId: Updated associated task ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
+        id: The unique ID of the task target to update.
+        taskId: Updated associated task ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
     """
     params = UpdateTaskTargetParam(
         id=id, taskId=taskId, targetPersonId=targetPersonId,
@@ -1836,11 +1833,11 @@ async def update_task_targets(
     """Bulk update task target records by IDs.
 
     Args:
-        ids: List of task target IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        taskId: Updated associated task ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
+        ids: List of task target IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        taskId: Updated associated task ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
     """
     params = UpdateTaskTargetParam(
         taskId=taskId, targetPersonId=targetPersonId,
@@ -1857,7 +1854,7 @@ async def delete_task_target_by_id(id: str, ctx: Context = None) -> dict[str, An
     """Delete a task target by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the task target to delete (required).
+        id: The unique ID of the task target to delete.
     """
     await get_client().delete_task_target_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -1868,7 +1865,7 @@ async def delete_task_targets(ids: list[str], ctx: Context = None) -> dict[str, 
     """Bulk delete task targets by IDs (hard destroy).
 
     Args:
-        ids: List of task target IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of task target IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_task_targets(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -1882,8 +1879,7 @@ async def list_timeline_activities(include_all_fields: bool = False, ctx: Contex
     """List all timeline activity records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_timeline_activities(
         get_user_token(),
@@ -1897,9 +1893,8 @@ async def get_timeline_activity_by_id(id: str, include_all_fields: bool = False,
     """Get a single timeline activity by its ID.
 
     Args:
-        id: The unique ID of the timeline activity (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the timeline activity.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_timeline_activity_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -1919,12 +1914,12 @@ async def create_timeline_activity(
     """Create a new timeline activity record.
 
     Args:
-        name: Name of the activity (required).
-        happensAt: When the activity occurred (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
-        targetCompanyId: ID of the associated company. (optional)
-        linkedRecordId: ID of a linked record (e.g. calendar event). (optional)
-        linkedObjectMetadataId: Metadata ID for the linked record type. (optional)
-        workspaceMemberId: ID of the workspace member who performed the activity. (optional)
+        name: Name of the activity.
+        happensAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        targetCompanyId: ID of the associated company.
+        linkedRecordId: ID of a linked record (e.g. calendar event).
+        linkedObjectMetadataId: Metadata ID for the linked record type.
+        workspaceMemberId: ID of the workspace member who performed the activity.
     """
     params = CreateTimelineActivityParam(
         name=name, happensAt=happensAt, targetCompanyId=targetCompanyId,
@@ -1956,32 +1951,32 @@ async def update_timeline_activity(
     targetDashboardId: Optional[str] = None,
     targetMessageListId: Optional[str] = None,
     targetMessageCampaignId: Optional[str] = None,
-    properties: Optional[str] = None,
+    properties: Optional[PropertiesModel] = None,
     position: Optional[int] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Update an existing timeline activity record.
 
     Args:
-        id: The unique ID of the timeline activity to update (required).
-        name: Updated name of the activity. (optional)
-        happensAt: Updated occurrence time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        workspaceMemberId: Updated associated workspace member ID. (optional)
-        linkedRecordId: Updated linked record ID. (optional)
-        linkedObjectMetadataId: Updated metadata ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
-        targetNoteId: Updated associated note ID. (optional)
-        targetTaskId: Updated associated task ID. (optional)
-        targetWorkflowId: Updated associated workflow ID. (optional)
-        targetWorkflowVersionId: Updated associated workflow version ID. (optional)
-        targetWorkflowRunId: Updated associated workflow run ID. (optional)
-        targetDashboardId: Updated associated dashboard ID. (optional)
-        targetMessageListId: Updated associated message list ID. (optional)
-        targetMessageCampaignId: Updated associated message campaign ID. (optional)
-        properties: Updated properties as JSON string. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the timeline activity to update.
+        name: Updated name of the activity.
+        happensAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        workspaceMemberId: Updated associated workspace member ID.
+        linkedRecordId: Updated linked record ID.
+        linkedObjectMetadataId: Updated metadata ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
+        targetNoteId: Updated associated note ID.
+        targetTaskId: Updated associated task ID.
+        targetWorkflowId: Updated associated workflow ID.
+        targetWorkflowVersionId: Updated associated workflow version ID.
+        targetWorkflowRunId: Updated associated workflow run ID.
+        targetDashboardId: Updated associated dashboard ID.
+        targetMessageListId: Updated associated message list ID.
+        targetMessageCampaignId: Updated associated message campaign ID.
+        properties: Properties payload with before/after states and field diffs.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateTimelineActivityParam(
         id=id, name=name, happensAt=happensAt, workspaceMemberId=workspaceMemberId,
@@ -2018,32 +2013,32 @@ async def update_timeline_activities(
     targetDashboardId: Optional[str] = None,
     targetMessageListId: Optional[str] = None,
     targetMessageCampaignId: Optional[str] = None,
-    properties: Optional[str] = None,
+    properties: Optional[PropertiesModel] = None,
     position: Optional[int] = None,
     ctx: Context = None
 ) -> dict[str, Any]:
     """Bulk update timeline activity records by IDs.
 
     Args:
-        ids: List of timeline activity IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        name: Updated name of the activity. (optional)
-        happensAt: Updated occurrence time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        workspaceMemberId: Updated associated workspace member ID. (optional)
-        linkedRecordId: Updated linked record ID. (optional)
-        linkedObjectMetadataId: Updated metadata ID. (optional)
-        targetPersonId: Updated associated person ID. (optional)
-        targetCompanyId: Updated associated company ID. (optional)
-        targetOpportunityId: Updated associated opportunity ID. (optional)
-        targetNoteId: Updated associated note ID. (optional)
-        targetTaskId: Updated associated task ID. (optional)
-        targetWorkflowId: Updated associated workflow ID. (optional)
-        targetWorkflowVersionId: Updated associated workflow version ID. (optional)
-        targetWorkflowRunId: Updated associated workflow run ID. (optional)
-        targetDashboardId: Updated associated dashboard ID. (optional)
-        targetMessageListId: Updated associated message list ID. (optional)
-        targetMessageCampaignId: Updated associated message campaign ID. (optional)
-        properties: Updated properties as JSON string. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of timeline activity IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        name: Updated name of the activity.
+        happensAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        workspaceMemberId: Updated associated workspace member ID.
+        linkedRecordId: Updated linked record ID.
+        linkedObjectMetadataId: Updated metadata ID.
+        targetPersonId: Updated associated person ID.
+        targetCompanyId: Updated associated company ID.
+        targetOpportunityId: Updated associated opportunity ID.
+        targetNoteId: Updated associated note ID.
+        targetTaskId: Updated associated task ID.
+        targetWorkflowId: Updated associated workflow ID.
+        targetWorkflowVersionId: Updated associated workflow version ID.
+        targetWorkflowRunId: Updated associated workflow run ID.
+        targetDashboardId: Updated associated dashboard ID.
+        targetMessageListId: Updated associated message list ID.
+        targetMessageCampaignId: Updated associated message campaign ID.
+        properties: Properties payload with before/after states and field diffs.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateTimelineActivityParam(
         name=name, happensAt=happensAt, workspaceMemberId=workspaceMemberId,
@@ -2066,7 +2061,7 @@ async def delete_timeline_activity_by_id(id: str, ctx: Context = None) -> dict[s
     """Delete a timeline activity by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the timeline activity to delete (required).
+        id: The unique ID of the timeline activity to delete.
     """
     await get_client().delete_timeline_activity_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -2077,7 +2072,7 @@ async def delete_timeline_activities(ids: list[str], ctx: Context = None) -> dic
     """Bulk delete timeline activities by IDs (hard destroy).
 
     Args:
-        ids: List of timeline activity IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of timeline activity IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_timeline_activities(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -2091,8 +2086,7 @@ async def list_calendar_events(include_all_fields: bool = False, ctx: Context = 
     """List all calendar event records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_calendar_events(
         get_user_token(),
@@ -2106,9 +2100,8 @@ async def get_calendar_event_by_id(id: str, include_all_fields: bool = False, ct
     """Get a single calendar event by its ID.
 
     Args:
-        id: The unique ID of the calendar event (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the calendar event.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_calendar_event_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -2128,12 +2121,12 @@ async def create_calendar_event(
     """Create a new calendar event record.
 
     Args:
-        title: Title of the calendar event (required).
-        startsAt: Start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
-        endsAt: End time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (required).
-        description: Description of the event. (optional)
-        location: Event location as plain text. (optional)
-        conferenceLink: Conference link with primaryLinkUrl and optional primaryLinkLabel. (optional)
+        title: Title of the calendar event.
+        startsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        endsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        description: Description of the event.
+        location: Event location as plain text.
+        conferenceLink: Conference link with primaryLinkUrl and optional primaryLinkLabel.
     """
     params = CreateCalendarEventParam(
         title=title, startsAt=startsAt, endsAt=endsAt, description=description,
@@ -2163,17 +2156,17 @@ async def update_calendar_event(
     """Update an existing calendar event record.
 
     Args:
-        id: The unique ID of the calendar event to update (required).
-        title: Updated title of the calendar event. (optional)
-        description: Updated description. (optional)
-        startsAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        endsAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        isCanceled: Updated cancellation status. (optional)
-        isFullDay: Updated all-day flag. (optional)
-        location: Updated event location as plain text. (optional)
-        conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        iCalUid: Updated iCal UID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        id: The unique ID of the calendar event to update.
+        title: Updated title of the calendar event.
+        description: Updated description.
+        startsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        endsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        isCanceled: Updated cancellation status.
+        isFullDay: Updated all-day flag.
+        location: Updated event location as plain text.
+        conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
+        iCalUid: Updated iCal UID.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateCalendarEventParam(
         id=id, title=title, isCanceled=isCanceled, isFullDay=isFullDay,
@@ -2204,17 +2197,17 @@ async def update_calendar_events(
     """Bulk update calendar event records by IDs.
 
     Args:
-        ids: List of calendar event IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        title: Updated title of the calendar event. (optional)
-        description: Updated description. (optional)
-        startsAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        endsAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        isCanceled: Updated cancellation status. (optional)
-        isFullDay: Updated all-day flag. (optional)
-        location: Updated event location as plain text. (optional)
-        conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel. (optional)
-        iCalUid: Updated iCal UID. (optional)
-        position: Display sort order (lower values appear first). (optional)
+        ids: List of calendar event IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        title: Updated title of the calendar event.
+        description: Updated description.
+        startsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        endsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        isCanceled: Updated cancellation status.
+        isFullDay: Updated all-day flag.
+        location: Updated event location as plain text.
+        conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
+        iCalUid: Updated iCal UID.
+        position: Display sort order (lower values appear first).
     """
     params = UpdateCalendarEventParam(
         title=title, isCanceled=isCanceled, isFullDay=isFullDay,
@@ -2232,7 +2225,7 @@ async def delete_calendar_event_by_id(id: str, ctx: Context = None) -> dict[str,
     """Delete a calendar event by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the calendar event to delete (required).
+        id: The unique ID of the calendar event to delete.
     """
     await get_client().delete_calendar_event_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -2243,7 +2236,7 @@ async def delete_calendar_events(ids: list[str], ctx: Context = None) -> dict[st
     """Bulk delete calendar events by IDs (hard destroy).
 
     Args:
-        ids: List of calendar event IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of calendar event IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_calendar_events(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -2257,8 +2250,7 @@ async def list_calendar_event_participants(include_all_fields: bool = False, ctx
     """List all calendar event participant records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_calendar_event_participants(
         get_user_token(),
@@ -2272,9 +2264,8 @@ async def get_calendar_event_participant_by_id(id: str, include_all_fields: bool
     """Get a single calendar event participant by its ID.
 
     Args:
-        id: The unique ID of the calendar event participant (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the calendar event participant.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_calendar_event_participant_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -2295,13 +2286,13 @@ async def create_calendar_event_participant(
     """Create a new calendar event participant record.
 
     Args:
-        calendarEventId: ID of the associated calendar event (required).
-        handle: Email handle of the participant (required).
-        displayName: Display name of the participant (required).
-        isOrganizer: Whether this participant is the organizer. (optional)
-        responseStatus: Response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED). (optional)
-        personId: ID of the associated person. (optional)
-        workspaceMemberId: ID of the associated workspace member. (optional)
+        calendarEventId: ID of the associated calendar event.
+        handle: Email handle of the participant.
+        displayName: Display name of the participant.
+        isOrganizer: Whether this participant is the organizer.
+        responseStatus: Response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED).
+        personId: ID of the associated person.
+        workspaceMemberId: ID of the associated workspace member.
     """
     params = CreateCalendarEventParticipantParam(
         calendarEventId=calendarEventId, handle=handle, displayName=displayName,
@@ -2329,14 +2320,14 @@ async def update_calendar_event_participant(
     """Update an existing calendar event participant record.
 
     Args:
-        id: The unique ID of the calendar event participant to update (required).
-        calendarEventId: Updated associated calendar event ID. (optional)
-        handle: Updated email handle. (optional)
-        displayName: Updated display name. (optional)
-        isOrganizer: Updated organizer flag. (optional)
-        responseStatus: Updated response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED) (optional).
-        personId: Updated associated person ID. (optional)
-        workspaceMemberId: Updated associated workspace member ID. (optional)
+        id: The unique ID of the calendar event participant to update.
+        calendarEventId: Updated associated calendar event ID.
+        handle: Updated email handle.
+        displayName: Updated display name.
+        isOrganizer: Updated organizer flag.
+        responseStatus: Updated response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED).
+        personId: Updated associated person ID.
+        workspaceMemberId: Updated associated workspace member ID.
     """
     params = UpdateCalendarEventParticipantParam(
         id=id, calendarEventId=calendarEventId, handle=handle, displayName=displayName,
@@ -2364,14 +2355,14 @@ async def update_calendar_event_participants(
     """Bulk update calendar event participant records by IDs.
 
     Args:
-        ids: List of calendar event participant IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        calendarEventId: Updated associated calendar event ID. (optional)
-        handle: Updated email handle. (optional)
-        displayName: Updated display name. (optional)
-        isOrganizer: Updated organizer flag. (optional)
-        responseStatus: Updated response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED) (optional).
-        personId: Updated associated person ID. (optional)
-        workspaceMemberId: Updated associated workspace member ID. (optional)
+        ids: List of calendar event participant IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        calendarEventId: Updated associated calendar event ID.
+        handle: Updated email handle.
+        displayName: Updated display name.
+        isOrganizer: Updated organizer flag.
+        responseStatus: Updated response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED).
+        personId: Updated associated person ID.
+        workspaceMemberId: Updated associated workspace member ID.
     """
     params = UpdateCalendarEventParticipantParam(
         calendarEventId=calendarEventId, handle=handle, displayName=displayName,
@@ -2389,7 +2380,7 @@ async def delete_calendar_event_participant_by_id(id: str, ctx: Context = None) 
     """Delete a calendar event participant by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the calendar event participant to delete (required).
+        id: The unique ID of the calendar event participant to delete.
     """
     await get_client().delete_calendar_event_participant_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -2400,7 +2391,7 @@ async def delete_calendar_event_participants(ids: list[str], ctx: Context = None
     """Bulk delete calendar event participants by IDs (hard destroy).
 
     Args:
-        ids: List of calendar event participant IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of calendar event participant IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_calendar_event_participants(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -2414,8 +2405,7 @@ async def list_messages(include_all_fields: bool = False, ctx: Context = None) -
     """List all message records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_messages(
         get_user_token(),
@@ -2429,9 +2419,8 @@ async def get_message_by_id(id: str, include_all_fields: bool = False, ctx: Cont
     """Get a single message by its ID.
 
     Args:
-        id: The unique ID of the message (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the message.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_message_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -2446,7 +2435,7 @@ async def create_message(
     """Create a new message record.
 
     Args:
-        subject: Subject of the message (required).
+        subject: Subject of the message.
     """
     params = CreateMessageParam(subject=subject)
     payload = _build_payload(params)
@@ -2470,14 +2459,14 @@ async def update_message(
     """Update an existing message record.
 
     Args:
-        id: The unique ID of the message to update (required).
-        headerMessageId: Updated header message ID. (optional)
-        subject: Updated subject of the message. (optional)
-        text: Updated body text of the message. (optional)
-        receivedAt: Updated received timestamp (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        messageThreadId: Updated associated message thread ID. (optional)
-        messageCampaignId: Updated associated message campaign ID. (optional)
-        deliveryStatus: Updated delivery status. (optional)
+        id: The unique ID of the message to update.
+        headerMessageId: Updated header message ID.
+        subject: Updated subject of the message.
+        text: Updated body text of the message.
+        receivedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        messageThreadId: Updated associated message thread ID.
+        messageCampaignId: Updated associated message campaign ID.
+        deliveryStatus: Updated delivery status.
     """
     params = UpdateMessageParam(
         id=id, headerMessageId=headerMessageId, subject=subject, text=text,
@@ -2505,14 +2494,14 @@ async def update_messages(
     """Bulk update message records by IDs.
 
     Args:
-        ids: List of message IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        headerMessageId: Updated header message ID. (optional)
-        subject: Updated subject of the message. (optional)
-        text: Updated body text of the message. (optional)
-        receivedAt: Updated received timestamp (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        messageThreadId: Updated associated message thread ID. (optional)
-        messageCampaignId: Updated associated message campaign ID. (optional)
-        deliveryStatus: Updated delivery status. (optional)
+        ids: List of message IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        headerMessageId: Updated header message ID.
+        subject: Updated subject of the message.
+        text: Updated body text of the message.
+        receivedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        messageThreadId: Updated associated message thread ID.
+        messageCampaignId: Updated associated message campaign ID.
+        deliveryStatus: Updated delivery status.
     """
     params = UpdateMessageParam(
         headerMessageId=headerMessageId, subject=subject, text=text,
@@ -2530,7 +2519,7 @@ async def delete_message_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the message to delete (required).
+        id: The unique ID of the message to delete.
     """
     await get_client().delete_message_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -2541,7 +2530,7 @@ async def delete_messages(ids: list[str], ctx: Context = None) -> dict[str, Any]
     """Bulk delete messages by IDs (hard destroy).
 
     Args:
-        ids: List of message IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of message IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_messages(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -2555,8 +2544,7 @@ async def list_message_threads(include_all_fields: bool = False, ctx: Context = 
     """List all message thread records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_message_threads(
         get_user_token(),
@@ -2570,9 +2558,8 @@ async def get_message_thread_by_id(id: str, include_all_fields: bool = False, ct
     """Get a single message thread by its ID.
 
     Args:
-        id: The unique ID of the message thread (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the message thread.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_message_thread_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -2587,7 +2574,7 @@ async def create_message_thread(
     """Create a new message thread record.
 
     Args:
-        subject: Subject of the message thread (required).
+        subject: Subject of the message thread.
     """
     params = CreateMessageThreadParam(subject=subject)
     payload = _build_payload(params)
@@ -2605,8 +2592,8 @@ async def update_message_thread(
     """Update an existing message thread record.
 
     Args:
-        id: The unique ID of the message thread to update (required).
-        subject: Updated subject of the message thread. (optional)
+        id: The unique ID of the message thread to update.
+        subject: Updated subject of the message thread.
     """
     params = UpdateMessageThreadParam(id=id, subject=subject)
     payload = _build_payload(params)
@@ -2624,8 +2611,8 @@ async def update_message_threads(
     """Bulk update message thread records by IDs.
 
     Args:
-        ids: List of message thread IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        subject: Updated subject of the message thread. (optional)
+        ids: List of message thread IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        subject: Updated subject of the message thread.
     """
     params = UpdateMessageThreadParam(subject=subject)
     payload = _build_payload(params)
@@ -2639,7 +2626,7 @@ async def delete_message_thread_by_id(id: str, ctx: Context = None) -> dict[str,
     """Delete a message thread by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the message thread to delete (required).
+        id: The unique ID of the message thread to delete.
     """
     await get_client().delete_message_thread_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -2650,7 +2637,7 @@ async def delete_message_threads(ids: list[str], ctx: Context = None) -> dict[st
     """Bulk delete message threads by IDs (hard destroy).
 
     Args:
-        ids: List of message thread IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of message thread IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_message_threads(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -2664,8 +2651,7 @@ async def list_message_participants(include_all_fields: bool = False, ctx: Conte
     """List all message participant records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_message_participants(
         get_user_token(),
@@ -2679,9 +2665,8 @@ async def get_message_participant_by_id(id: str, include_all_fields: bool = Fals
     """Get a single message participant by its ID.
 
     Args:
-        id: The unique ID of the message participant (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the message participant.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_message_participant_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -2702,13 +2687,13 @@ async def create_message_participant(
     """Create a new message participant record.
 
     Args:
-        messageId: ID of the associated message (required).
-        role: Role of the participant (required).
-        handle: Email handle of the participant (required).
-        displayName: Display name of the participant (required).
-        personId: ID of the associated person. (optional)
-        workspaceMemberId: ID of the associated workspace member. (optional)
-        messageCampaignId: ID of the associated message campaign. (optional)
+        messageId: ID of the associated message.
+        role: Role of the participant.
+        handle: Email handle of the participant.
+        displayName: Display name of the participant.
+        personId: ID of the associated person.
+        workspaceMemberId: ID of the associated workspace member.
+        messageCampaignId: ID of the associated message campaign.
     """
     params = CreateMessageParticipantParam(
         messageId=messageId, role=role, handle=handle, displayName=displayName,
@@ -2736,14 +2721,14 @@ async def update_message_participant(
     """Update an existing message participant record.
 
     Args:
-        id: The unique ID of the message participant to update (required).
-        messageId: Updated associated message ID. (optional)
-        role: Updated role of the participant. (optional)
-        handle: Updated email handle. (optional)
-        displayName: Updated display name. (optional)
-        personId: Updated associated person ID. (optional)
-        workspaceMemberId: Updated associated workspace member ID. (optional)
-        messageCampaignId: Updated associated message campaign ID. (optional)
+        id: The unique ID of the message participant to update.
+        messageId: Updated associated message ID.
+        role: Updated role of the participant.
+        handle: Updated email handle.
+        displayName: Updated display name.
+        personId: Updated associated person ID.
+        workspaceMemberId: Updated associated workspace member ID.
+        messageCampaignId: Updated associated message campaign ID.
     """
     params = UpdateMessageParticipantParam(
         id=id, messageId=messageId, role=role, handle=handle, displayName=displayName,
@@ -2771,14 +2756,14 @@ async def update_message_participants(
     """Bulk update message participant records by IDs.
 
     Args:
-        ids: List of message participant IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        messageId: Updated associated message ID. (optional)
-        role: Updated role of the participant. (optional)
-        handle: Updated email handle. (optional)
-        displayName: Updated display name. (optional)
-        personId: Updated associated person ID. (optional)
-        workspaceMemberId: Updated associated workspace member ID. (optional)
-        messageCampaignId: Updated associated message campaign ID. (optional)
+        ids: List of message participant IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        messageId: Updated associated message ID.
+        role: Updated role of the participant.
+        handle: Updated email handle.
+        displayName: Updated display name.
+        personId: Updated associated person ID.
+        workspaceMemberId: Updated associated workspace member ID.
+        messageCampaignId: Updated associated message campaign ID.
     """
     params = UpdateMessageParticipantParam(
         messageId=messageId, role=role, handle=handle, displayName=displayName,
@@ -2796,7 +2781,7 @@ async def delete_message_participant_by_id(id: str, ctx: Context = None) -> dict
     """Delete a message participant by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the message participant to delete (required).
+        id: The unique ID of the message participant to delete.
     """
     await get_client().delete_message_participant_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -2807,7 +2792,7 @@ async def delete_message_participants(ids: list[str], ctx: Context = None) -> di
     """Bulk delete message participants by IDs (hard destroy).
 
     Args:
-        ids: List of message participant IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of message participant IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_message_participants(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}
@@ -2821,8 +2806,7 @@ async def list_call_recordings(include_all_fields: bool = False, ctx: Context = 
     """List all call recording records.
 
     Args:
-        include_all_fields: When False (default), each item contains only
-            commonly used fields. Set to True to include all fields.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     data = await get_client().get_all_call_recordings(
         get_user_token(),
@@ -2836,9 +2820,8 @@ async def get_call_recording_by_id(id: str, include_all_fields: bool = False, ct
     """Get a single call recording by its ID.
 
     Args:
-        id: The unique ID of the call recording (required).
-        include_all_fields: When False (default), returns only commonly used
-            fields. Set to True to retrieve all available fields.
+        id: The unique ID of the call recording.
+        include_all_fields: Default False (common fields only). Set True for all fields.
     """
     return await get_client().get_call_recording_by_id(
         id, get_user_token(), include_all_fields=include_all_fields
@@ -2854,8 +2837,8 @@ async def create_call_recording(
     """Create a new call recording record.
 
     Args:
-        title: Title of the call recording (required).
-        status: Status of the call recording (required).
+        title: Title of the call recording.
+        status: Status of the call recording.
     """
     params = CreateCallRecordingParam(title=title, status=status)
     payload = _build_payload(params)
@@ -2881,16 +2864,16 @@ async def update_call_recording(
     """Update an existing call recording record.
 
     Args:
-        id: The unique ID of the call recording to update (required).
-        title: Updated title of the call recording. (optional)
-        status: Updated status of the call recording. (optional)
-        recordingRequestStatus: Updated request status. (optional)
-        applicationId: Updated application ID. (optional)
-        externalBotId: Updated external bot ID. (optional)
-        externalRecordingId: Updated external recording ID. (optional)
-        startedAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        endedAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        calendarEventId: Updated associated calendar event ID. (optional)
+        id: The unique ID of the call recording to update.
+        title: Updated title of the call recording.
+        status: Updated status of the call recording.
+        recordingRequestStatus: Updated request status.
+        applicationId: Updated application ID.
+        externalBotId: Updated external bot ID.
+        externalRecordingId: Updated external recording ID.
+        startedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        endedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        calendarEventId: Updated associated calendar event ID.
     """
     params = UpdateCallRecordingParam(
         id=id, title=title, status=status, recordingRequestStatus=recordingRequestStatus,
@@ -2921,16 +2904,16 @@ async def update_call_recordings(
     """Bulk update call recording records by IDs.
 
     Args:
-        ids: List of call recording IDs (UUID format, e.g. "a1b2c3d4-...") to update (required).
-        title: Updated title of the call recording. (optional)
-        status: Updated status of the call recording. (optional)
-        recordingRequestStatus: Updated request status. (optional)
-        applicationId: Updated application ID. (optional)
-        externalBotId: Updated external bot ID. (optional)
-        externalRecordingId: Updated external recording ID. (optional)
-        startedAt: Updated start time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        endedAt: Updated end time (Use ISO 8601 format with explicit UTC offset (2026-06-22T15:00:00-04:00) (optional)
-        calendarEventId: Updated associated calendar event ID. (optional)
+        ids: List of call recording IDs (UUID format, e.g. "a1b2c3d4-..") to update.
+        title: Updated title of the call recording.
+        status: Updated status of the call recording.
+        recordingRequestStatus: Updated request status.
+        applicationId: Updated application ID.
+        externalBotId: Updated external bot ID.
+        externalRecordingId: Updated external recording ID.
+        startedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        endedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        calendarEventId: Updated associated calendar event ID.
     """
     params = UpdateCallRecordingParam(
         title=title, status=status, recordingRequestStatus=recordingRequestStatus,
@@ -2949,7 +2932,7 @@ async def delete_call_recording_by_id(id: str, ctx: Context = None) -> dict[str,
     """Delete a call recording by its ID (hard destroy).
 
     Args:
-        id: The unique ID of the call recording to delete (required).
+        id: The unique ID of the call recording to delete.
     """
     await get_client().delete_call_recording_by_id(id, get_user_token())
     return {"deleted": True, "id": id}
@@ -2960,7 +2943,7 @@ async def delete_call_recordings(ids: list[str], ctx: Context = None) -> dict[st
     """Bulk delete call recordings by IDs (hard destroy).
 
     Args:
-        ids: List of call recording IDs (UUID format, e.g. "a1b2c3d4-...") to delete (required).
+        ids: List of call recording IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
     await get_client().delete_call_recordings(ids, get_user_token())
     return {"deleted": True, "count": len(ids)}

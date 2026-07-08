@@ -110,8 +110,6 @@ class PropertiesDiffEntry(BaseModel):
 class PropertiesModel(BaseModel):
     """Properties payload for a timeline activity event. Describes what changed in the associated record."""
     updatedFields: Optional[list[str]] = Field(default=None, description="List of field names that changed.")
-    before: Optional[str] = Field(default=None, description="Previous record state as a JSON string.")
-    after: Optional[str] = Field(default=None, description="New record state as a JSON string.")
     diff: Optional[list[PropertiesDiffEntry]] = Field(default=None, description="List of per-field diffs with before/after values.")
 
 

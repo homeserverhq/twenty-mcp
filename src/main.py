@@ -553,7 +553,7 @@ def _day_name_to_int(v: str | int | None) -> int | None:
 # =============================================================================
 # Company Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "twenty"})
 async def list_companies(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all company records.
 
@@ -567,7 +567,7 @@ async def list_companies(include_all_fields: bool = False, ctx: Context = None) 
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "twenty"})
 async def get_company_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single company by its ID.
 
@@ -580,7 +580,7 @@ async def get_company_by_id(id: str, include_all_fields: bool = False, ctx: Cont
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def create_company(
     name: str,
     domainName: LinkModel | None = None,
@@ -599,7 +599,7 @@ async def create_company(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def update_company(
     id: str,
     name: Optional[str] = None,
@@ -634,7 +634,7 @@ async def update_company(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_companies(
     ids: list[str],
     name: Optional[str] = None,
@@ -669,7 +669,7 @@ async def update_companies(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def delete_company_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a company by its ID (hard destroy).
 
@@ -680,7 +680,7 @@ async def delete_company_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_companies(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete companies by IDs (hard destroy).
 
@@ -694,7 +694,7 @@ async def delete_companies(ids: list[str], ctx: Context = None) -> dict[str, Any
 # =============================================================================
 # Person Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "twenty"})
 async def list_people(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all person records.
 
@@ -708,7 +708,7 @@ async def list_people(include_all_fields: bool = False, ctx: Context = None) -> 
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "twenty"})
 async def get_person_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single person by their ID.
 
@@ -721,7 +721,7 @@ async def get_person_by_id(id: str, include_all_fields: bool = False, ctx: Conte
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def create_person(
     name: FullNameModel,
     emails: EmailsModel,
@@ -751,7 +751,7 @@ async def create_person(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def update_person(
     id: str,
     name: FullNameModel | None = None,
@@ -787,7 +787,7 @@ async def update_person(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_people(
     ids: list[str],
     name: FullNameModel | None = None,
@@ -823,7 +823,7 @@ async def update_people(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def delete_person_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a person by their ID (hard destroy).
 
@@ -834,7 +834,7 @@ async def delete_person_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_people(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete people by IDs (hard destroy).
 
@@ -848,7 +848,7 @@ async def delete_people(ids: list[str], ctx: Context = None) -> dict[str, Any]:
 # =============================================================================
 # Opportunity Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "twenty"})
 async def list_opportunities(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all opportunity records.
 
@@ -862,7 +862,7 @@ async def list_opportunities(include_all_fields: bool = False, ctx: Context = No
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "basic", "twenty"})
 async def get_opportunity_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single opportunity by its ID.
 
@@ -875,7 +875,7 @@ async def get_opportunity_by_id(id: str, include_all_fields: bool = False, ctx: 
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def create_opportunity(
     name: str,
     stage: str,
@@ -898,7 +898,7 @@ async def create_opportunity(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def update_opportunity(
     id: str,
     name: Optional[str] = None,
@@ -934,7 +934,7 @@ async def update_opportunity(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_opportunities(
     ids: list[str],
     name: Optional[str] = None,
@@ -970,7 +970,7 @@ async def update_opportunities(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "basic", "twenty"})
 async def delete_opportunity_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete an opportunity by its ID (hard destroy).
 
@@ -981,7 +981,7 @@ async def delete_opportunity_by_id(id: str, ctx: Context = None) -> dict[str, An
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_opportunities(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete opportunities by IDs (hard destroy).
 
@@ -995,7 +995,7 @@ async def delete_opportunities(ids: list[str], ctx: Context = None) -> dict[str,
 # =============================================================================
 # Note Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_notes(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all note records.
 
@@ -1009,7 +1009,7 @@ async def list_notes(include_all_fields: bool = False, ctx: Context = None) -> d
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_note_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single note by its ID.
 
@@ -1022,7 +1022,7 @@ async def get_note_by_id(id: str, include_all_fields: bool = False, ctx: Context
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def create_note(
     title: str,
     markdown: str = "",
@@ -1041,7 +1041,7 @@ async def create_note(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_note(
     id: str,
     title: Optional[str] = None,
@@ -1065,7 +1065,7 @@ async def update_note(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_notes(
     ids: list[str],
     title: Optional[str] = None,
@@ -1089,7 +1089,7 @@ async def update_notes(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_note_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a note by its ID (hard destroy).
 
@@ -1100,7 +1100,7 @@ async def delete_note_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_notes(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete notes by IDs (hard destroy).
 
@@ -1114,7 +1114,7 @@ async def delete_notes(ids: list[str], ctx: Context = None) -> dict[str, Any]:
 # =============================================================================
 # Task Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_tasks(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all task records.
 
@@ -1128,7 +1128,7 @@ async def list_tasks(include_all_fields: bool = False, ctx: Context = None) -> d
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_task_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single task by its ID.
 
@@ -1141,7 +1141,7 @@ async def get_task_by_id(id: str, include_all_fields: bool = False, ctx: Context
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def create_task(
     title: str,
     status: str,
@@ -1169,7 +1169,7 @@ async def create_task(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_task(
     id: str,
     title: Optional[str] = None,
@@ -1202,7 +1202,7 @@ async def update_task(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_tasks(
     ids: list[str],
     title: Optional[str] = None,
@@ -1235,7 +1235,7 @@ async def update_tasks(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_task_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a task by its ID (hard destroy).
 
@@ -1246,7 +1246,7 @@ async def delete_task_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_tasks(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete tasks by IDs (hard destroy).
 
@@ -1260,7 +1260,7 @@ async def delete_tasks(ids: list[str], ctx: Context = None) -> dict[str, Any]:
 # =============================================================================
 # Workflow Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_workflows(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all workflow records.
 
@@ -1274,7 +1274,7 @@ async def list_workflows(include_all_fields: bool = False, ctx: Context = None) 
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_workflow_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single workflow by its ID.
 
@@ -1287,7 +1287,7 @@ async def get_workflow_by_id(id: str, include_all_fields: bool = False, ctx: Con
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def create_workflow(
     name: str,
     statuses: list[str],
@@ -1306,7 +1306,7 @@ async def create_workflow(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_workflow(
     id: str,
     name: Optional[str] = None,
@@ -1333,7 +1333,7 @@ async def update_workflow(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_workflow_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a workflow by its ID (hard destroy).
 
@@ -1347,7 +1347,7 @@ async def delete_workflow_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
 # =============================================================================
 # WorkspaceMember Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_workspace_members(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all workspace member records.
 
@@ -1361,7 +1361,7 @@ async def list_workspace_members(include_all_fields: bool = False, ctx: Context 
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_workspace_member_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single workspace member by their ID.
 
@@ -1374,7 +1374,7 @@ async def get_workspace_member_by_id(id: str, include_all_fields: bool = False, 
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_workspace_member(
     id: str,
     name: FullNameModel | None = None,
@@ -1417,7 +1417,7 @@ async def update_workspace_member(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_workspace_members(
     ids: list[str],
     name: FullNameModel | None = None,
@@ -1463,7 +1463,7 @@ async def update_workspace_members(
 # =============================================================================
 # Attachment Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_attachments(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all attachment records.
 
@@ -1477,7 +1477,7 @@ async def list_attachments(include_all_fields: bool = False, ctx: Context = None
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_attachment_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single attachment by its ID.
 
@@ -1490,7 +1490,7 @@ async def get_attachment_by_id(id: str, include_all_fields: bool = False, ctx: C
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def create_attachment(
     name: str,
     fullPath: str = "",
@@ -1529,7 +1529,7 @@ async def create_attachment(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_attachment(
     id: str,
     name: Optional[str] = None,
@@ -1576,7 +1576,7 @@ async def update_attachment(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_attachments(
     ids: list[str],
     name: Optional[str] = None,
@@ -1623,7 +1623,7 @@ async def update_attachments(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_attachment_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete an attachment by its ID (hard destroy).
 
@@ -1634,7 +1634,7 @@ async def delete_attachment_by_id(id: str, ctx: Context = None) -> dict[str, Any
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_attachments(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete attachments by IDs (hard destroy).
 
@@ -1648,7 +1648,7 @@ async def delete_attachments(ids: list[str], ctx: Context = None) -> dict[str, A
 # =============================================================================
 # NoteTarget Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_note_targets(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all note target records.
 
@@ -1662,7 +1662,7 @@ async def list_note_targets(include_all_fields: bool = False, ctx: Context = Non
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_note_target_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single note target by its ID.
 
@@ -1675,7 +1675,7 @@ async def get_note_target_by_id(id: str, include_all_fields: bool = False, ctx: 
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def create_note_target(
     noteId: str,
     targetPersonId: str = "",
@@ -1701,7 +1701,7 @@ async def create_note_target(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_note_target(
     id: str,
     noteId: Optional[str] = None,
@@ -1729,7 +1729,7 @@ async def update_note_target(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_note_targets(
     ids: list[str],
     noteId: Optional[str] = None,
@@ -1757,7 +1757,7 @@ async def update_note_targets(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_note_target_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a note target by its ID (hard destroy).
 
@@ -1768,7 +1768,7 @@ async def delete_note_target_by_id(id: str, ctx: Context = None) -> dict[str, An
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_note_targets(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete note targets by IDs (hard destroy).
 
@@ -1782,7 +1782,7 @@ async def delete_note_targets(ids: list[str], ctx: Context = None) -> dict[str, 
 # =============================================================================
 # TaskTarget Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_task_targets(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all task target records.
 
@@ -1796,7 +1796,7 @@ async def list_task_targets(include_all_fields: bool = False, ctx: Context = Non
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_task_target_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single task target by its ID.
 
@@ -1809,7 +1809,7 @@ async def get_task_target_by_id(id: str, include_all_fields: bool = False, ctx: 
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def create_task_target(
     taskId: str,
     targetPersonId: str = "",
@@ -1835,7 +1835,7 @@ async def create_task_target(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_task_target(
     id: str,
     taskId: Optional[str] = None,
@@ -1863,7 +1863,7 @@ async def update_task_target(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_task_targets(
     ids: list[str],
     taskId: Optional[str] = None,
@@ -1891,7 +1891,7 @@ async def update_task_targets(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_task_target_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a task target by its ID (hard destroy).
 
@@ -1902,7 +1902,7 @@ async def delete_task_target_by_id(id: str, ctx: Context = None) -> dict[str, An
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_task_targets(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete task targets by IDs (hard destroy).
 
@@ -1916,7 +1916,7 @@ async def delete_task_targets(ids: list[str], ctx: Context = None) -> dict[str, 
 # =============================================================================
 # TimelineActivity Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_timeline_activities(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all timeline activity records.
 
@@ -1930,7 +1930,7 @@ async def list_timeline_activities(include_all_fields: bool = False, ctx: Contex
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_timeline_activity_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single timeline activity by its ID.
 
@@ -1943,7 +1943,7 @@ async def get_timeline_activity_by_id(id: str, include_all_fields: bool = False,
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def create_timeline_activity(
     name: str,
     happensAt: str,
@@ -1974,7 +1974,7 @@ async def create_timeline_activity(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_timeline_activity(
     id: str,
     name: Optional[str] = None,
@@ -2036,7 +2036,7 @@ async def update_timeline_activity(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_timeline_activities(
     ids: list[str],
     name: Optional[str] = None,
@@ -2098,7 +2098,7 @@ async def update_timeline_activities(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_timeline_activity_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a timeline activity by its ID (hard destroy).
 
@@ -2109,7 +2109,7 @@ async def delete_timeline_activity_by_id(id: str, ctx: Context = None) -> dict[s
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_timeline_activities(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete timeline activities by IDs (hard destroy).
 
@@ -2123,7 +2123,7 @@ async def delete_timeline_activities(ids: list[str], ctx: Context = None) -> dic
 # =============================================================================
 # CalendarEvent Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_calendar_events(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all calendar event records.
 
@@ -2137,7 +2137,7 @@ async def list_calendar_events(include_all_fields: bool = False, ctx: Context = 
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_calendar_event_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single calendar event by its ID.
 
@@ -2150,7 +2150,7 @@ async def get_calendar_event_by_id(id: str, include_all_fields: bool = False, ct
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def create_calendar_event(
     title: str,
     startsAt: str,
@@ -2180,7 +2180,7 @@ async def create_calendar_event(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_calendar_event(
     id: str,
     title: Optional[str] = None,
@@ -2221,7 +2221,7 @@ async def update_calendar_event(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_calendar_events(
     ids: list[str],
     title: Optional[str] = None,
@@ -2262,7 +2262,7 @@ async def update_calendar_events(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_calendar_event_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a calendar event by its ID (hard destroy).
 
@@ -2273,7 +2273,7 @@ async def delete_calendar_event_by_id(id: str, ctx: Context = None) -> dict[str,
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_calendar_events(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete calendar events by IDs (hard destroy).
 
@@ -2287,7 +2287,7 @@ async def delete_calendar_events(ids: list[str], ctx: Context = None) -> dict[st
 # =============================================================================
 # CalendarEventParticipant Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_calendar_event_participants(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all calendar event participant records.
 
@@ -2301,7 +2301,7 @@ async def list_calendar_event_participants(include_all_fields: bool = False, ctx
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_calendar_event_participant_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single calendar event participant by its ID.
 
@@ -2314,7 +2314,7 @@ async def get_calendar_event_participant_by_id(id: str, include_all_fields: bool
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def create_calendar_event_participant(
     calendarEventId: str,
     handle: str,
@@ -2347,7 +2347,7 @@ async def create_calendar_event_participant(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_calendar_event_participant(
     id: str,
     calendarEventId: Optional[str] = None,
@@ -2382,7 +2382,7 @@ async def update_calendar_event_participant(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_calendar_event_participants(
     ids: list[str],
     calendarEventId: Optional[str] = None,
@@ -2417,7 +2417,7 @@ async def update_calendar_event_participants(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_calendar_event_participant_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a calendar event participant by its ID (hard destroy).
 
@@ -2428,7 +2428,7 @@ async def delete_calendar_event_participant_by_id(id: str, ctx: Context = None) 
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_calendar_event_participants(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete calendar event participants by IDs (hard destroy).
 
@@ -2442,7 +2442,7 @@ async def delete_calendar_event_participants(ids: list[str], ctx: Context = None
 # =============================================================================
 # Message Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_messages(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all message records.
 
@@ -2456,7 +2456,7 @@ async def list_messages(include_all_fields: bool = False, ctx: Context = None) -
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_message_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single message by its ID.
 
@@ -2469,7 +2469,7 @@ async def get_message_by_id(id: str, include_all_fields: bool = False, ctx: Cont
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def create_message(
     subject: str,
     ctx: Context = None
@@ -2486,7 +2486,7 @@ async def create_message(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_message(
     id: str,
     headerMessageId: Optional[str] = None,
@@ -2521,7 +2521,7 @@ async def update_message(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_messages(
     ids: list[str],
     headerMessageId: Optional[str] = None,
@@ -2556,7 +2556,7 @@ async def update_messages(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_message_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message by its ID (hard destroy).
 
@@ -2567,7 +2567,7 @@ async def delete_message_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_messages(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete messages by IDs (hard destroy).
 
@@ -2581,7 +2581,7 @@ async def delete_messages(ids: list[str], ctx: Context = None) -> dict[str, Any]
 # =============================================================================
 # MessageThread Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_message_threads(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all message thread records.
 
@@ -2595,7 +2595,7 @@ async def list_message_threads(include_all_fields: bool = False, ctx: Context = 
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_message_thread_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single message thread by its ID.
 
@@ -2608,7 +2608,7 @@ async def get_message_thread_by_id(id: str, include_all_fields: bool = False, ct
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def create_message_thread(
     subject: str,
     ctx: Context = None
@@ -2625,7 +2625,7 @@ async def create_message_thread(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_message_thread(
     id: str,
     subject: Optional[str] = None,
@@ -2644,7 +2644,7 @@ async def update_message_thread(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def update_message_threads(
     ids: list[str],
     subject: Optional[str] = None,
@@ -2663,7 +2663,7 @@ async def update_message_threads(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_message_thread_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message thread by its ID (hard destroy).
 
@@ -2674,7 +2674,7 @@ async def delete_message_thread_by_id(id: str, ctx: Context = None) -> dict[str,
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "primary", "twenty"})
 async def delete_message_threads(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete message threads by IDs (hard destroy).
 
@@ -2688,7 +2688,7 @@ async def delete_message_threads(ids: list[str], ctx: Context = None) -> dict[st
 # =============================================================================
 # MessageParticipant Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_message_participants(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all message participant records.
 
@@ -2702,7 +2702,7 @@ async def list_message_participants(include_all_fields: bool = False, ctx: Conte
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_message_participant_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single message participant by its ID.
 
@@ -2715,7 +2715,7 @@ async def get_message_participant_by_id(id: str, include_all_fields: bool = Fals
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def create_message_participant(
     messageId: str,
     role: str,
@@ -2748,7 +2748,7 @@ async def create_message_participant(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_message_participant(
     id: str,
     messageId: Optional[str] = None,
@@ -2783,7 +2783,7 @@ async def update_message_participant(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_message_participants(
     ids: list[str],
     messageId: Optional[str] = None,
@@ -2818,7 +2818,7 @@ async def update_message_participants(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_message_participant_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message participant by its ID (hard destroy).
 
@@ -2829,7 +2829,7 @@ async def delete_message_participant_by_id(id: str, ctx: Context = None) -> dict
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_message_participants(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete message participants by IDs (hard destroy).
 
@@ -2843,7 +2843,7 @@ async def delete_message_participants(ids: list[str], ctx: Context = None) -> di
 # =============================================================================
 # CallRecording Tools
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def list_call_recordings(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """List all call recording records.
 
@@ -2857,7 +2857,7 @@ async def list_call_recordings(include_all_fields: bool = False, ctx: Context = 
     return {"items": json_to_toon(data)}
 
 
-@mcp.tool()
+@mcp.tool(tags={"read", "primary", "twenty"})
 async def get_call_recording_by_id(id: str, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
     """Get a single call recording by its ID.
 
@@ -2870,7 +2870,7 @@ async def get_call_recording_by_id(id: str, include_all_fields: bool = False, ct
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def create_call_recording(
     title: str,
     status: str,
@@ -2889,7 +2889,7 @@ async def create_call_recording(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_call_recording(
     id: str,
     title: Optional[str] = None,
@@ -2929,7 +2929,7 @@ async def update_call_recording(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def update_call_recordings(
     ids: list[str],
     title: Optional[str] = None,
@@ -2969,7 +2969,7 @@ async def update_call_recordings(
     )
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_call_recording_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a call recording by its ID (hard destroy).
 
@@ -2980,7 +2980,7 @@ async def delete_call_recording_by_id(id: str, ctx: Context = None) -> dict[str,
     return {"deleted": True, "id": id}
 
 
-@mcp.tool()
+@mcp.tool(tags={"write", "advanced", "twenty"})
 async def delete_call_recordings(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete call recordings by IDs (hard destroy).
 
@@ -2994,7 +2994,7 @@ async def delete_call_recordings(ids: list[str], ctx: Context = None) -> dict[st
 # =============================================================================
 # Server Status Tool
 # =============================================================================
-@mcp.tool()
+@mcp.tool(tags={"read", "advanced", "twenty"})
 async def check_server_status(ctx: Context = None) -> dict[str, Any]:
     """Check connectivity to the Twenty backend API."""
     import httpx

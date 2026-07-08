@@ -30,6 +30,7 @@ with CRUD operations, search, and relationship management.
 | `TWENTY_BASE_URL` | Yes | Docker-internal URL of the Twenty API (e.g. `http://twenty-app:3000`). |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on |
 | `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is silently forced to `False` for aggregate list operations. |
+| `IS_STATEFUL` | No | When `true`, uses stateful Streamable HTTP with session tracking. When `false` (default), uses stateless mode. |
 
 ## 📦 Installation & Local Development
 
@@ -55,6 +56,7 @@ docker run -d --name twenty-mcp \
     -e TWENTY_BASE_URL="http://twenty-app:3000" \
     -e MCP_SERVER_PORT=80 \
     -e ALLOW_ALL_AGGREGATE=false \
+    -e IS_STATEFUL=false \
     twenty-mcp:latest
 
 The MCP server serves at `http://twenty-mcp:80/mcp` (Streamable HTTP).

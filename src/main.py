@@ -582,7 +582,7 @@ async def update_company(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         annualRevenue: Updated annual revenue with amountMicros and currencyCode.
         accountOwnerId: Updated account owner workspace member ID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateCompanyParam(
         id=id, name=name, domainName=domainName, address=address,
@@ -617,7 +617,7 @@ async def update_companies(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         annualRevenue: Updated annual revenue with amountMicros and currencyCode.
         accountOwnerId: Updated account owner workspace member ID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateCompanyParam(
         name=name, domainName=domainName, address=address,
@@ -700,7 +700,7 @@ async def create_person(
         jobTitle: Job title of the person.
         companyId: ID of the associated company.
         avatarUrl: URL to the person's avatar image.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = CreatePersonParam(
         name=name, emails=emails, jobTitle=jobTitle, companyId=companyId,
@@ -736,7 +736,7 @@ async def update_person(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         companyId: Updated associated company ID.
         avatarUrl: Updated avatar URL.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdatePersonParam(
         id=id, name=name, emails=emails, phones=phones, jobTitle=jobTitle,
@@ -772,7 +772,7 @@ async def update_people(
         linkedinLink: Updated LinkedIn link with primaryLinkUrl and optional primaryLinkLabel.
         companyId: Updated associated company ID.
         avatarUrl: Updated avatar URL.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdatePersonParam(
         name=name, emails=emails, phones=phones, jobTitle=jobTitle,
@@ -848,7 +848,7 @@ async def create_opportunity(
 
     Args:
         name: Name of the opportunity.
-        stage: Pipeline stage (e.g. NEW, SCREENING, MEETING, PROPOSAL).
+        stage: new, screening, meeting, proposal, or customer
         amount: Monetary amount with amountMicros and currencyCode.
         closeDate: ISO 8601 format (2026-06-22T15:00:00-04:00).
     """
@@ -879,6 +879,11 @@ async def update_opportunity(
         name: Updated name of the opportunity.
         amount: Updated monetary amount with amountMicros and currencyCode.
         closeDate: ISO 8601 format (2026-06-22T15:00:00-04:00).
+        stage: new, screening, meeting, proposal, or customer
+        companyId: Updated associated company ID.
+        pointOfContactId: Updated associated person ID.
+        ownerId: Updated owner workspace member ID.
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateOpportunityParam(
         name=name, amount=amount, closeDate=closeDate, stage=stage,
@@ -910,11 +915,11 @@ async def update_opportunities(
         name: Updated name of the opportunity.
         amount: Updated monetary amount with amountMicros and currencyCode.
         closeDate: ISO 8601 format (2026-06-22T15:00:00-04:00).
-        stage: Updated pipeline stage.
+        stage: new, screening, meeting, proposal, or customer
         companyId: Updated associated company ID.
         pointOfContactId: Updated associated person ID.
         ownerId: Updated owner workspace member ID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateOpportunityParam(
         name=name, amount=amount, closeDate=closeDate, stage=stage,
@@ -1011,7 +1016,7 @@ async def update_note(
         id: The unique ID of the note to update.
         title: Updated title of the note.
         markdown: Updated markdown-formatted body text.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(id=id, title=title, bodyV2=bodyV2, position=position)
@@ -1035,7 +1040,7 @@ async def update_notes(
         ids: List of note IDs (UUID format, e.g. "a1b2c3d4-..") to update.
         title: Updated title of the note.
         markdown: Updated markdown-formatted body text.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(title=title, bodyV2=bodyV2, position=position)
@@ -1110,7 +1115,7 @@ async def create_task(
 
     Args:
         title: Title of the task.
-        status: Task status (e.g. TODO, IN_PROGRESS, DONE).
+        status: todo, in_progress, or done
         markdown: Markdown-formatted body text for the task.
         dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         assigneeId: ID of the workspace member assigned to this task.
@@ -1142,10 +1147,10 @@ async def update_task(
         id: The unique ID of the task to update.
         title: Updated title of the task.
         markdown: Updated markdown-formatted body text.
-        status: Updated task status.
+        status: todo, in_progress, or done
         dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         assigneeId: Updated assignee workspace member ID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
@@ -1175,10 +1180,10 @@ async def update_tasks(
         ids: List of task IDs (UUID format, e.g. "a1b2c3d4-..") to update.
         title: Updated title of the task.
         markdown: Updated markdown-formatted body text.
-        status: Updated task status.
+        status: todo, in_progress, or done
         dueAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         assigneeId: Updated assignee workspace member ID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateTaskParam(
@@ -1253,7 +1258,7 @@ async def create_workflow(
 
     Args:
         name: Name of the workflow.
-        statuses: List of workflow statuses (e.g. ["ACTIVE"]).
+        statuses: draft, active, or deactivated
     """
     params = CreateWorkflowParam(name=name, statuses=statuses)
     payload = _build_payload(params)
@@ -1276,9 +1281,9 @@ async def update_workflow(
     Args:
         id: The unique ID of the workflow to update.
         name: Updated name of the workflow.
-        statuses: Updated list of workflow statuses.
+        statuses: draft, active, or deactivated
         lastPublishedVersionId: Updated last published version ID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateWorkflowParam(
         id=id, name=name, statuses=statuses, lastPublishedVersionId=lastPublishedVersionId, position=position,
@@ -1351,16 +1356,16 @@ async def update_workspace_member(
     Args:
         id: The unique ID of the workspace member to update.
         name: Updated full name with firstName and lastName.
-        colorScheme: Updated UI color scheme (e.g. Light, Dark, System).
+        colorScheme: light, dark, or system
         locale: Updated locale code (e.g. en_US).
         avatarUrl: Updated avatar URL.
         userEmail: Updated user email address.
-        calendarStartDay: Updated first day of the week (0=Sunday, 1=Monday, etc.).
+        calendarStartDay: 0 to 6 (0=sunday, 1=monday, ..., 6=saturday).
         timeZone: Updated timezone string.
-        dateFormat: Updated date format preference.
-        timeFormat: Updated time format preference.
-        numberFormat: Updated number format preference.
-        position: Display sort order (lower values appear first).
+        dateFormat: system, month_first, day_first, or year_first
+        timeFormat: system, hour_24, or hour_12
+        numberFormat: system, commas_and_dot, spaces_and_comma, dots_and_comma, or apostrophe_and_dot
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateWorkspaceMemberParam(
         id=id, name=name, colorScheme=colorScheme, locale=locale, avatarUrl=avatarUrl,
@@ -1394,16 +1399,16 @@ async def update_workspace_members(
     Args:
         ids: List of workspace member IDs (UUID format, e.g. "a1b2c3d4-..") to update.
         name: Updated full name with firstName and lastName.
-        colorScheme: Updated UI color scheme (e.g. Light, Dark, System).
+        colorScheme: light, dark, or system
         locale: Updated locale code (e.g. en_US).
         avatarUrl: Updated avatar URL.
         userEmail: Updated user email address.
-        calendarStartDay: Updated first day of the week (0=Sunday, 1=Monday, etc.).
+        calendarStartDay: 0 to 6 (0=sunday, 1=monday, ..., 6=saturday).
         timeZone: Updated timezone string.
-        dateFormat: Updated date format preference.
-        timeFormat: Updated time format preference.
-        numberFormat: Updated number format preference.
-        position: Display sort order (lower values appear first).
+        dateFormat: system, month_first, day_first, or year_first
+        timeFormat: system, hour_24, or hour_12
+        numberFormat: system, commas_and_dot, spaces_and_comma, dots_and_comma, or apostrophe_and_dot
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateWorkspaceMemberParam(
         name=name, colorScheme=colorScheme, locale=locale, avatarUrl=avatarUrl,
@@ -1508,8 +1513,8 @@ async def update_attachment(
         id: The unique ID of the attachment to update.
         name: Updated name of the attachment file.
         fullPath: Updated full file path.
-        type: Updated MIME type of the file.
-        fileCategory: Updated category of the file.
+        type: Deprecated MIME type. Use fileCategory instead.
+        fileCategory: archive, audio, image, presentation, spreadsheet, text_document, video, or other
         authorId: Updated author workspace member ID.
         targetTaskId: Updated associated task ID.
         targetNoteId: Updated associated note ID.
@@ -1555,8 +1560,8 @@ async def update_attachments(
         ids: List of attachment IDs (UUID format, e.g. "a1b2c3d4-..") to update.
         name: Updated name of the attachment file.
         fullPath: Updated full file path.
-        type: Updated MIME type of the file.
-        fileCategory: Updated category of the file.
+        type: Deprecated MIME type. Use fileCategory instead.
+        fileCategory: archive, audio, image, presentation, spreadsheet, text_document, video, or other
         authorId: Updated author workspace member ID.
         targetTaskId: Updated associated task ID.
         targetNoteId: Updated associated note ID.
@@ -1974,7 +1979,7 @@ async def update_timeline_activity(
         targetMessageListId: Updated associated message list ID.
         targetMessageCampaignId: Updated associated message campaign ID.
         properties: Properties payload with before/after states and field diffs.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateTimelineActivityParam(
         id=id, name=name, happensAt=happensAt, workspaceMemberId=workspaceMemberId,
@@ -2036,7 +2041,7 @@ async def update_timeline_activities(
         targetMessageListId: Updated associated message list ID.
         targetMessageCampaignId: Updated associated message campaign ID.
         properties: Properties payload with before/after states and field diffs.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateTimelineActivityParam(
         name=name, happensAt=happensAt, workspaceMemberId=workspaceMemberId,
@@ -2159,12 +2164,12 @@ async def update_calendar_event(
         description: Updated description.
         startsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         endsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
-        isCanceled: Updated cancellation status.
-        isFullDay: Updated all-day flag.
+        isCanceled: true or false
+        isFullDay: true or false
         location: Updated event location as plain text.
         conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
         iCalUid: Updated iCal UID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateCalendarEventParam(
         id=id, title=title, isCanceled=isCanceled, isFullDay=isFullDay,
@@ -2200,12 +2205,12 @@ async def update_calendar_events(
         description: Updated description.
         startsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         endsAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
-        isCanceled: Updated cancellation status.
-        isFullDay: Updated all-day flag.
+        isCanceled: true or false
+        isFullDay: true or false
         location: Updated event location as plain text.
         conferenceLink: Updated conference link with primaryLinkUrl and optional primaryLinkLabel.
         iCalUid: Updated iCal UID.
-        position: Display sort order (lower values appear first).
+        position: Display position as a float. Lower values appear first.
     """
     params = UpdateCalendarEventParam(
         title=title, isCanceled=isCanceled, isFullDay=isFullDay,
@@ -2287,8 +2292,8 @@ async def create_calendar_event_participant(
         calendarEventId: ID of the associated calendar event.
         handle: Email handle of the participant.
         displayName: Display name of the participant.
-        isOrganizer: Whether this participant is the organizer.
-        responseStatus: Response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED).
+        isOrganizer: true or false
+        responseStatus: needs_action, declined, tentative, or accepted
         personId: ID of the associated person.
         workspaceMemberId: ID of the associated workspace member.
     """
@@ -2322,8 +2327,8 @@ async def update_calendar_event_participant(
         calendarEventId: Updated associated calendar event ID.
         handle: Updated email handle.
         displayName: Updated display name.
-        isOrganizer: Updated organizer flag.
-        responseStatus: Updated response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED).
+        isOrganizer: true or false
+        responseStatus: needs_action, declined, tentative, or accepted
         personId: Updated associated person ID.
         workspaceMemberId: Updated associated workspace member ID.
     """
@@ -2357,8 +2362,8 @@ async def update_calendar_event_participants(
         calendarEventId: Updated associated calendar event ID.
         handle: Updated email handle.
         displayName: Updated display name.
-        isOrganizer: Updated organizer flag.
-        responseStatus: Updated response status (NEEDS_ACTION, DECLINED, TENTATIVE, ACCEPTED).
+        isOrganizer: true or false
+        responseStatus: needs_action, declined, tentative, or accepted
         personId: Updated associated person ID.
         workspaceMemberId: Updated associated workspace member ID.
     """
@@ -2464,7 +2469,7 @@ async def update_message(
         receivedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         messageThreadId: Updated associated message thread ID.
         messageCampaignId: Updated associated message campaign ID.
-        deliveryStatus: Updated delivery status.
+        deliveryStatus: queued, sent, failed, bounced, complained, or skipped
     """
     params = UpdateMessageParam(
         id=id, headerMessageId=headerMessageId, subject=subject, text=text,
@@ -2499,7 +2504,7 @@ async def update_messages(
         receivedAt: ISO 8601 format (2026-06-22T15:00:00-04:00).
         messageThreadId: Updated associated message thread ID.
         messageCampaignId: Updated associated message campaign ID.
-        deliveryStatus: Updated delivery status.
+        deliveryStatus: queued, sent, failed, bounced, complained, or skipped
     """
     params = UpdateMessageParam(
         headerMessageId=headerMessageId, subject=subject, text=text,
@@ -2686,7 +2691,7 @@ async def create_message_participant(
 
     Args:
         messageId: ID of the associated message.
-        role: Role of the participant.
+        role: from, to, cc, or bcc
         handle: Email handle of the participant.
         displayName: Display name of the participant.
         personId: ID of the associated person.
@@ -2721,7 +2726,7 @@ async def update_message_participant(
     Args:
         id: The unique ID of the message participant to update.
         messageId: Updated associated message ID.
-        role: Updated role of the participant.
+        role: from, to, cc, or bcc
         handle: Updated email handle.
         displayName: Updated display name.
         personId: Updated associated person ID.
@@ -2756,7 +2761,7 @@ async def update_message_participants(
     Args:
         ids: List of message participant IDs (UUID format, e.g. "a1b2c3d4-..") to update.
         messageId: Updated associated message ID.
-        role: Updated role of the participant.
+        role: from, to, cc, or bcc
         handle: Updated email handle.
         displayName: Updated display name.
         personId: Updated associated person ID.
@@ -2836,7 +2841,7 @@ async def create_call_recording(
 
     Args:
         title: Title of the call recording.
-        status: Status of the call recording.
+        status: scheduled, joining, recording, processing, completed, or failed
     """
     params = CreateCallRecordingParam(title=title, status=status)
     payload = _build_payload(params)
@@ -2864,8 +2869,8 @@ async def update_call_recording(
     Args:
         id: The unique ID of the call recording to update.
         title: Updated title of the call recording.
-        status: Updated status of the call recording.
-        recordingRequestStatus: Updated request status.
+        status: scheduled, joining, recording, processing, completed, or failed
+        recordingRequestStatus: requested or canceled
         applicationId: Updated application ID.
         externalBotId: Updated external bot ID.
         externalRecordingId: Updated external recording ID.
@@ -2904,8 +2909,8 @@ async def update_call_recordings(
     Args:
         ids: List of call recording IDs (UUID format, e.g. "a1b2c3d4-..") to update.
         title: Updated title of the call recording.
-        status: Updated status of the call recording.
-        recordingRequestStatus: Updated request status.
+        status: scheduled, joining, recording, processing, completed, or failed
+        recordingRequestStatus: requested or canceled
         applicationId: Updated application ID.
         externalBotId: Updated external bot ID.
         externalRecordingId: Updated external recording ID.

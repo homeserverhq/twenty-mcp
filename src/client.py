@@ -29,9 +29,45 @@ COMMON_FIELDS: dict[str, set[str]] = {
 }
 
 
+def _reduce_body_v2(value: Any) -> Any:
+    """Keep only the rendered markdown of a bodyV2 payload.
+
+    Twenty returns both ``blocknote`` (the raw BlockNote editor document, serialized as a
+    JSON string several times larger than the rendered text) and ``markdown``. Tool
+    consumers only need the markdown, so the BlockNote document is dropped from every
+    response; otherwise a single aggregate listing of notes/tasks can dwarf the prompt.
+    """
+    if isinstance(value, dict):
+        return {"markdown": value.get("markdown", "")}
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError):
+            return value
+        if isinstance(parsed, dict):
+            return {"markdown": parsed.get("markdown", "")}
+    return value
+
+
+def _reduce_body_v2_fields(data: Any) -> Any:
+    """Recursively replace every ``bodyV2`` value with its markdown-only form."""
+    if isinstance(data, dict):
+        return {
+            k: _reduce_body_v2(v) if k == "bodyV2" else _reduce_body_v2_fields(v)
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [_reduce_body_v2_fields(item) for item in data]
+    return data
+
+
 def _filter_fields(data: Any, common_set: set[str]) -> Any:
     if isinstance(data, dict):
-        return {k: v for k, v in data.items() if k in common_set}
+        return {
+            k: _reduce_body_v2(v) if k == "bodyV2" else v
+            for k, v in data.items()
+            if k in common_set
+        }
     if isinstance(data, list):
         return [_filter_fields(item, common_set) for item in data]
     return data
@@ -104,7 +140,7 @@ class TwentyClient:
             if response.status_code == 204:
                 return {}
             if response.headers.get("content-type", "").startswith("application/json"):
-                return response.json()
+                return _reduce_body_v2_fields(response.json())
             return {"text": response.text}
 
     async def get(self, path: str, api_key: Optional[str] = None, **kwargs: Any) -> Any:

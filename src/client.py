@@ -12,8 +12,8 @@ COMMON_FIELDS: dict[str, set[str]] = {
     "company":                    {"id", "name", "domainName"},
     "person":                     {"id", "name", "emails", "jobTitle", "companyId"},
     "opportunity":                {"id", "name", "amount", "stage", "companyId", "pointOfContactId"},
-    "note":                       {"id", "title", "bodyV2", "createdAt"},
-    "task":                       {"id", "title", "bodyV2", "status", "dueAt"},
+    "note":                       {"id", "title", "bodyV2", "createdAt", "updatedAt", "createdBy", "updatedBy"},
+    "task":                       {"id", "title", "bodyV2", "status", "dueAt", "createdAt", "updatedAt", "createdBy", "updatedBy"},
     "workflow":                   {"id", "name", "statuses", "lastPublishedVersionId"},
     "workspaceMember":            {"id", "name", "userEmail", "colorScheme"},
     "attachment":                 {"id", "name", "fullPath", "type", "file", "targetCompanyId", "createdAt"},
@@ -61,10 +61,19 @@ def _reduce_body_v2_fields(data: Any) -> Any:
     return data
 
 
+def _reduce_actor(value: Any) -> Any:
+    """Collapse a Twenty actor object (createdBy/updatedBy) to its display name."""
+    if isinstance(value, dict):
+        return value.get("name")
+    return value
+
+
 def _filter_fields(data: Any, common_set: set[str]) -> Any:
     if isinstance(data, dict):
         return {
-            k: _reduce_body_v2(v) if k == "bodyV2" else v
+            k: _reduce_body_v2(v) if k == "bodyV2"
+            else _reduce_actor(v) if k in ("createdBy", "updatedBy")
+            else v
             for k, v in data.items()
             if k in common_set
         }

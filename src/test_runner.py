@@ -204,16 +204,14 @@ def _get_list_items(data: Any) -> list[dict[str, Any]]:
 
 
 def _is_test_artifact(name: str) -> bool:
+    """Only treat this run's fixtures as artifacts.
+
+    Older runs use the same ``t<hex>-`` shape. Matching every such name made
+    the leak scan delete pre-existing records from previous runs.
+    """
     if not name or not isinstance(name, str):
         return False
-    name = name.strip()
-    if not name.startswith("t"):
-        return False
-    dash_pos = name.find("-", 1)
-    if dash_pos < 2 or dash_pos > 9:
-        return False
-    prefix = name[1:dash_pos]
-    return bool(prefix) and all(c in "0123456789abcdef" for c in prefix)
+    return name.strip().startswith(f"t{rid}-")
 
 
 def _store_result(content: Any) -> dict:
@@ -440,12 +438,12 @@ PHASE3C_TESTS = [
     ("C3 update_workspaceMember", "update_workspace_member", lambda s, r: {"id": s.get("workspaceMember", {}).get("id"), "colorScheme": "dark"}, None, False),
     ("C3 update_note", "update_note", lambda s, r: {"id": s.get("note", {}).get("id"), "title": f"t{r}-Note-Upd"}, None, False),
     ("C3 update_task", "update_task", lambda s, r: {"id": s.get("task", {}).get("id"), "status": "in_progress"}, None, False),
-    ("C3 update_workflow", "update_workflow", lambda s, r: {"id": s.get("workflow", {}).get("id")}, None, False),
+    ("C3 update_workflow", "update_workflow", lambda s, r: {"id": s.get("workflow", {}).get("id"), "name": f"t{r}-Workflow-Upd"}, None, False),
     ("C3 update_messageThread", "update_message_thread", lambda s, r: {"id": s.get("messageThread", {}).get("id"), "subject": f"t{r}-Thread-Upd"}, None, False),
     ("C3 update_calendarEvent", "update_calendar_event", lambda s, r: {"id": s.get("calendarEvent", {}).get("id"), "title": f"t{r}-CalEvent-Upd"}, None, False),
     ("C3 update_message", "update_message", lambda s, r: {"id": s.get("message", {}).get("id"), "subject": f"t{r}-Message-Upd"}, None, False),
-    ("C3 update_noteTarget", "update_note_target", lambda s, r: {"id": s.get("noteTarget", {}).get("id")}, None, False),
-    ("C3 update_taskTarget", "update_task_target", lambda s, r: {"id": s.get("taskTarget", {}).get("id")}, None, False),
+    ("C3 update_noteTarget", "update_note_target", lambda s, r: {"id": s.get("noteTarget", {}).get("id"), "targetPersonId": s.get("person", {}).get("id")}, None, False),
+    ("C3 update_taskTarget", "update_task_target", lambda s, r: {"id": s.get("taskTarget", {}).get("id"), "targetPersonId": s.get("person", {}).get("id")}, None, False),
     ("C3 update_timelineActivity", "update_timeline_activity", lambda s, r: {"id": s.get("timelineActivity", {}).get("id"), "name": f"t{r}-Timeline-Upd"}, None, False),
     ("C3 update_attachment", "update_attachment", lambda s, r: {"id": s.get("attachment", {}).get("id"), "name": f"t{r}-Attachment-Upd"}, None, False),
     ("C3 update_callRecording", "update_call_recording", lambda s, r: {"id": s.get("callRecording", {}).get("id"), "status": "completed"}, None, False),
@@ -501,8 +499,8 @@ PHASE4_TESTS = [
     ("bulk_update_messageThread", "update_message_threads", lambda s, r: {"ids": [s.get("messageThread", {}).get("id"), s.get("messageThread", {}).get("id")], "subject": f"t{r}-Thread-Upd"}, None, False),
     ("bulk_update_calendarEvent", "update_calendar_events", lambda s, r: {"ids": [s.get("calendarEvent", {}).get("id"), s.get("calendarEvent", {}).get("id")], "title": f"t{r}-CalEvent-Upd"}, None, False),
     ("bulk_update_message", "update_messages", lambda s, r: {"ids": [s.get("message", {}).get("id"), s.get("message", {}).get("id")], "subject": f"t{r}-Message-Upd"}, None, False),
-    ("bulk_update_noteTarget", "update_note_targets", lambda s, r: {"ids": [s.get("noteTarget", {}).get("id"), s.get("noteTarget", {}).get("id")]}, None, False),
-    ("bulk_update_taskTarget", "update_task_targets", lambda s, r: {"ids": [s.get("taskTarget", {}).get("id"), s.get("taskTarget", {}).get("id")]}, None, False),
+    ("bulk_update_noteTarget", "update_note_targets", lambda s, r: {"ids": [s.get("noteTarget", {}).get("id"), s.get("noteTarget", {}).get("id")], "targetPersonId": s.get("person", {}).get("id")}, None, False),
+    ("bulk_update_taskTarget", "update_task_targets", lambda s, r: {"ids": [s.get("taskTarget", {}).get("id"), s.get("taskTarget", {}).get("id")], "targetPersonId": s.get("person", {}).get("id")}, None, False),
     ("bulk_update_timelineActivity", "update_timeline_activities", lambda s, r: {"ids": [s.get("timelineActivity", {}).get("id"), s.get("timelineActivity", {}).get("id")], "name": f"t{r}-Timeline-Upd"}, None, False),
     ("bulk_update_attachment", "update_attachments", lambda s, r: {"ids": [s.get("attachment", {}).get("id"), s.get("attachment", {}).get("id")], "name": f"t{r}-Attachment-Upd"}, None, False),
     ("bulk_update_callRecording", "update_call_recordings", lambda s, r: {"ids": [s.get("callRecording", {}).get("id"), s.get("callRecording", {}).get("id")], "status": "completed"}, None, False),

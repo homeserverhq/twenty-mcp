@@ -1,4 +1,5 @@
 import os
+import asyncio
 import datetime as dt
 import re
 import json
@@ -82,17 +83,47 @@ def _filter_fields(data: Any, common_set: set[str]) -> Any:
     return data
 
 
+def _id_filter(ids: list[str]) -> str:
+    """Build a validated, de-duplicated ``id[in]`` filter value.
+
+    Twenty accepts unquoted UUIDs in ``id[in]:[...]``; quoting them returns 400.
+    An empty list would produce an invalid filter, so reject it before the call.
+    """
+    unique = list(dict.fromkeys(str(item).strip() for item in ids if str(item).strip()))
+    if not unique:
+        raise ValueError("ids must contain at least one non-empty id")
+    return "[" + ",".join(unique) + "]"
+
+
+DATE_FIELDS = {"dueAt", "startsAt", "endsAt", "happensAt", "receivedAt"}
+DATETIME_HINT = "ISO 8601 format (2026-06-22T15:00:00-04:00)."
+
+
 def _normalize_datetime(value: str) -> str:
-    if re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$', value):
-        parsed = dt.datetime.fromisoformat(value)
-        parsed = parsed.astimezone(dt.timezone.utc)
-        return parsed.strftime('%Y-%m-%d %H:%M:%S')
-    if re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', value):
+    """Normalize an offset-aware ISO 8601 string to UTC (``...Z``).
+
+    Accepts ``Z`` and fractional seconds. Rejects naive datetimes, date-only
+    values, and numeric epoch strings.
+    """
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid datetime: {value!r}. {DATETIME_HINT}"
+        )
+    text = value.strip()
+    try:
+        parsed = dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid datetime: {value}. {DATETIME_HINT}"
+        ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError(
             f"Invalid datetime: {value}. Timezone offset is required. "
-            "Must use format: 2026-06-22T15:00:00-04:00"
+            f"{DATETIME_HINT}"
         )
-    return value
+    return parsed.astimezone(dt.timezone.utc).isoformat(
+        timespec="milliseconds"
+    ).replace("+00:00", "Z")
 
 
 class TwentyClient:
@@ -113,13 +144,63 @@ class TwentyClient:
     def _normalize_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         result = {}
         for k, v in payload.items():
-            if isinstance(v, str):
-                result[k] = _normalize_datetime(v) if re.match(
-                    r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}', v
-                ) else v
+            if k in DATE_FIELDS and isinstance(v, str) and v.strip():
+                result[k] = _normalize_datetime(v)
+            elif isinstance(v, str) and re.match(r'^\d{4}-\d{2}-\d{2}T', v):
+                result[k] = _normalize_datetime(v)
             else:
                 result[k] = v
         return result
+
+    async def _list_page(
+        self,
+        path: str,
+        plural: str,
+        common_key: str,
+        api_key: Optional[str],
+        include_all_fields: bool,
+        limit: int,
+        starting_after: Optional[str],
+    ) -> dict[str, Any]:
+        if not isinstance(limit, int) or limit < 1 or limit > 200:
+            raise ValueError("limit must be an integer between 1 and 200")
+        params: dict[str, Any] = {"limit": limit}
+        if starting_after:
+            params["starting_after"] = starting_after
+        raw = await self.get(f"/rest/{path}", api_key, params=params)
+        data = raw.get("data", {}).get(plural, [])
+        if not include_all_fields:
+            data = _filter_fields(data, COMMON_FIELDS[common_key])
+        total = raw.get("totalCount")
+        page_info = raw.get("pageInfo") or {}
+        result = {
+            "items": data,
+            "total_count": total,
+            "page_info": page_info,
+        }
+        if (
+            isinstance(total, int)
+            and total > len(data)
+            and not page_info.get("hasNextPage")
+        ):
+            result["warning"] = (
+                f"backend reported totalCount={total} but returned {len(data)} "
+                "row(s); records may be hidden by a required channel association"
+            )
+        return result
+
+    async def _delete_many(self, path: str, ids: list[str],
+                           api_key: Optional[str]) -> dict[str, Any]:
+        id_list = _id_filter(ids)
+        raw = await self.delete(f"/rest/{path}?filter=id[in]:{id_list}", api_key)
+        data = raw.get("data", {}) if isinstance(raw, dict) else {}
+        records = next((value for value in data.values() if isinstance(value, list)), [])
+        return {
+            "deleted": True,
+            "count": len(records),
+            "requested": len(list(dict.fromkeys(str(item) for item in ids))),
+            "ids": [item.get("id") for item in records if isinstance(item, dict)],
+        }
 
     async def request(
         self,
@@ -131,7 +212,18 @@ class TwentyClient:
         url = f"{self.base_url}{path}"
         headers = self._get_headers(api_key)
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.request(method, url, headers=headers, **kwargs)
+            response = None
+            for attempt in range(5):
+                response = await client.request(method, url, headers=headers, **kwargs)
+                if response.status_code != 429:
+                    break
+                try:
+                    retry_after = float(response.headers.get("retry-after", "10"))
+                except (TypeError, ValueError):
+                    retry_after = 10.0
+                await asyncio.sleep(max(1.0, min(retry_after, 60.0)))
+            if response is None:
+                raise RuntimeError(f"No response for {method} {path}")
             if response.status_code >= 400:
                 body = ""
                 try:
@@ -167,12 +259,8 @@ class TwentyClient:
     # =========================================================================
     # Company
     # =========================================================================
-    async def get_all_companies(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/companies", api_key)
-        data = raw.get("data", {}).get("companies", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["company"])
-        return data
+    async def get_all_companies(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("companies", "companies", "company", api_key, include_all_fields, limit, starting_after)
 
     async def get_company_by_id(self, company_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/companies/{company_id}", api_key)
@@ -199,7 +287,7 @@ class TwentyClient:
         return data
 
     async def update_companies(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/companies?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCompanies", {})
@@ -212,18 +300,13 @@ class TwentyClient:
         return await self.delete(f"/rest/companies/{company_id}", api_key)
 
     async def delete_companies(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/companies?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("companies", ids, api_key)
 
     # =========================================================================
     # Person
     # =========================================================================
-    async def get_all_people(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/people", api_key)
-        data = raw.get("data", {}).get("people", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["person"])
-        return data
+    async def get_all_people(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("people", "people", "person", api_key, include_all_fields, limit, starting_after)
 
     async def get_person_by_id(self, person_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/people/{person_id}", api_key)
@@ -250,7 +333,7 @@ class TwentyClient:
         return data
 
     async def update_people(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/people?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updatePeople", {})
@@ -263,18 +346,13 @@ class TwentyClient:
         return await self.delete(f"/rest/people/{person_id}", api_key)
 
     async def delete_people(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/people?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("people", ids, api_key)
 
     # =========================================================================
     # Opportunity
     # =========================================================================
-    async def get_all_opportunities(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/opportunities", api_key)
-        data = raw.get("data", {}).get("opportunities", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["opportunity"])
-        return data
+    async def get_all_opportunities(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("opportunities", "opportunities", "opportunity", api_key, include_all_fields, limit, starting_after)
 
     async def get_opportunity_by_id(self, opportunity_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/opportunities/{opportunity_id}", api_key)
@@ -301,7 +379,7 @@ class TwentyClient:
         return data
 
     async def update_opportunities(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/opportunities?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateOpportunities", {})
@@ -314,18 +392,13 @@ class TwentyClient:
         return await self.delete(f"/rest/opportunities/{opportunity_id}", api_key)
 
     async def delete_opportunities(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/opportunities?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("opportunities", ids, api_key)
 
     # =========================================================================
     # Note
     # =========================================================================
-    async def get_all_notes(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/notes", api_key)
-        data = raw.get("data", {}).get("notes", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["note"])
-        return data
+    async def get_all_notes(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("notes", "notes", "note", api_key, include_all_fields, limit, starting_after)
 
     async def get_note_by_id(self, note_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/notes/{note_id}", api_key)
@@ -352,7 +425,7 @@ class TwentyClient:
         return data
 
     async def update_notes(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/notes?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateNotes", {})
@@ -365,18 +438,13 @@ class TwentyClient:
         return await self.delete(f"/rest/notes/{note_id}", api_key)
 
     async def delete_notes(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/notes?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("notes", ids, api_key)
 
     # =========================================================================
     # Task
     # =========================================================================
-    async def get_all_tasks(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/tasks", api_key)
-        data = raw.get("data", {}).get("tasks", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["task"])
-        return data
+    async def get_all_tasks(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("tasks", "tasks", "task", api_key, include_all_fields, limit, starting_after)
 
     async def get_task_by_id(self, task_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/tasks/{task_id}", api_key)
@@ -403,7 +471,7 @@ class TwentyClient:
         return data
 
     async def update_tasks(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/tasks?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateTasks", {})
@@ -416,18 +484,13 @@ class TwentyClient:
         return await self.delete(f"/rest/tasks/{task_id}", api_key)
 
     async def delete_tasks(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/tasks?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("tasks", ids, api_key)
 
     # =========================================================================
     # Workflow
     # =========================================================================
-    async def get_all_workflows(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/workflows", api_key)
-        data = raw.get("data", {}).get("workflows", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["workflow"])
-        return data
+    async def get_all_workflows(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("workflows", "workflows", "workflow", api_key, include_all_fields, limit, starting_after)
 
     async def get_workflow_by_id(self, workflow_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/workflows/{workflow_id}", api_key)
@@ -459,12 +522,8 @@ class TwentyClient:
     # =========================================================================
     # WorkspaceMember
     # =========================================================================
-    async def get_all_workspace_members(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/workspaceMembers", api_key)
-        data = raw.get("data", {}).get("workspaceMembers", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["workspaceMember"])
-        return data
+    async def get_all_workspace_members(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("workspaceMembers", "workspaceMembers", "workspaceMember", api_key, include_all_fields, limit, starting_after)
 
     async def get_workspace_member_by_id(self, workspace_member_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/workspaceMembers/{workspace_member_id}", api_key)
@@ -483,24 +542,26 @@ class TwentyClient:
         return data
 
     async def update_workspace_members(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
         normalized = self._normalize_payload(payload)
-        raw = await self.patch(f"/rest/workspaceMembers?filter=id[in]:{id_list}", api_key, json=normalized)
-        data = raw.get("data", {}).get("updateWorkspaceMembers", {})
-        if isinstance(data, list): return {"updated": data}
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["workspaceMember"])
-        return data
+        unique = list(dict.fromkeys(str(item).strip() for item in ids if str(item).strip()))
+        if not unique:
+            raise ValueError("ids must contain at least one non-empty id")
+        updated: list[Any] = []
+        for member_id in unique:
+            raw = await self.patch(
+                f"/rest/workspaceMembers/{member_id}", api_key, json=normalized
+            )
+            data = raw.get("data", {}).get("updateWorkspaceMember", {})
+            if not include_all_fields and isinstance(data, dict):
+                data = _filter_fields(data, COMMON_FIELDS["workspaceMember"])
+            updated.append(data)
+        return {"updated": updated}
 
     # =========================================================================
     # Attachment
     # =========================================================================
-    async def get_all_attachments(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/attachments", api_key)
-        data = raw.get("data", {}).get("attachments", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["attachment"])
-        return data
+    async def get_all_attachments(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("attachments", "attachments", "attachment", api_key, include_all_fields, limit, starting_after)
 
     async def get_attachment_by_id(self, attachment_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/attachments/{attachment_id}", api_key)
@@ -527,7 +588,7 @@ class TwentyClient:
         return data
 
     async def update_attachments(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/attachments?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateAttachments", {})
@@ -540,18 +601,13 @@ class TwentyClient:
         return await self.delete(f"/rest/attachments/{attachment_id}", api_key)
 
     async def delete_attachments(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/attachments?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("attachments", ids, api_key)
 
     # =========================================================================
     # NoteTarget
     # =========================================================================
-    async def get_all_note_targets(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/noteTargets", api_key)
-        data = raw.get("data", {}).get("noteTargets", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["noteTarget"])
-        return data
+    async def get_all_note_targets(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("noteTargets", "noteTargets", "noteTarget", api_key, include_all_fields, limit, starting_after)
 
     async def get_note_target_by_id(self, note_target_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/noteTargets/{note_target_id}", api_key)
@@ -578,7 +634,7 @@ class TwentyClient:
         return data
 
     async def update_note_targets(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/noteTargets?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateNoteTargets", {})
@@ -591,18 +647,13 @@ class TwentyClient:
         return await self.delete(f"/rest/noteTargets/{note_target_id}", api_key)
 
     async def delete_note_targets(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/noteTargets?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("noteTargets", ids, api_key)
 
     # =========================================================================
     # TaskTarget
     # =========================================================================
-    async def get_all_task_targets(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/taskTargets", api_key)
-        data = raw.get("data", {}).get("taskTargets", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["taskTarget"])
-        return data
+    async def get_all_task_targets(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("taskTargets", "taskTargets", "taskTarget", api_key, include_all_fields, limit, starting_after)
 
     async def get_task_target_by_id(self, task_target_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/taskTargets/{task_target_id}", api_key)
@@ -629,7 +680,7 @@ class TwentyClient:
         return data
 
     async def update_task_targets(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/taskTargets?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateTaskTargets", {})
@@ -642,18 +693,13 @@ class TwentyClient:
         return await self.delete(f"/rest/taskTargets/{task_target_id}", api_key)
 
     async def delete_task_targets(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/taskTargets?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("taskTargets", ids, api_key)
 
     # =========================================================================
     # TimelineActivity
     # =========================================================================
-    async def get_all_timeline_activities(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/timelineActivities", api_key)
-        data = raw.get("data", {}).get("timelineActivities", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["timelineActivity"])
-        return data
+    async def get_all_timeline_activities(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("timelineActivities", "timelineActivities", "timelineActivity", api_key, include_all_fields, limit, starting_after)
 
     async def get_timeline_activity_by_id(self, timeline_activity_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/timelineActivities/{timeline_activity_id}", api_key)
@@ -680,7 +726,7 @@ class TwentyClient:
         return data
 
     async def update_timeline_activities(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/timelineActivities?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateTimelineActivities", {})
@@ -693,18 +739,13 @@ class TwentyClient:
         return await self.delete(f"/rest/timelineActivities/{timeline_activity_id}", api_key)
 
     async def delete_timeline_activities(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/timelineActivities?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("timelineActivities", ids, api_key)
 
     # =========================================================================
     # CalendarEvent
     # =========================================================================
-    async def get_all_calendar_events(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/calendarEvents", api_key)
-        data = raw.get("data", {}).get("calendarEvents", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["calendarEvent"])
-        return data
+    async def get_all_calendar_events(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("calendarEvents", "calendarEvents", "calendarEvent", api_key, include_all_fields, limit, starting_after)
 
     async def get_calendar_event_by_id(self, calendar_event_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/calendarEvents/{calendar_event_id}", api_key)
@@ -731,7 +772,7 @@ class TwentyClient:
         return data
 
     async def update_calendar_events(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/calendarEvents?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCalendarEvents", {})
@@ -744,18 +785,13 @@ class TwentyClient:
         return await self.delete(f"/rest/calendarEvents/{calendar_event_id}", api_key)
 
     async def delete_calendar_events(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/calendarEvents?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("calendarEvents", ids, api_key)
 
     # =========================================================================
     # CalendarEventParticipant
     # =========================================================================
-    async def get_all_calendar_event_participants(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/calendarEventParticipants", api_key)
-        data = raw.get("data", {}).get("calendarEventParticipants", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["calendarEventParticipant"])
-        return data
+    async def get_all_calendar_event_participants(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("calendarEventParticipants", "calendarEventParticipants", "calendarEventParticipant", api_key, include_all_fields, limit, starting_after)
 
     async def get_calendar_event_participant_by_id(self, calendar_event_participant_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/calendarEventParticipants/{calendar_event_participant_id}", api_key)
@@ -782,7 +818,7 @@ class TwentyClient:
         return data
 
     async def update_calendar_event_participants(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/calendarEventParticipants?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCalendarEventParticipants", {})
@@ -795,18 +831,13 @@ class TwentyClient:
         return await self.delete(f"/rest/calendarEventParticipants/{calendar_event_participant_id}", api_key)
 
     async def delete_calendar_event_participants(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/calendarEventParticipants?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("calendarEventParticipants", ids, api_key)
 
     # =========================================================================
     # Message
     # =========================================================================
-    async def get_all_messages(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/messages", api_key)
-        data = raw.get("data", {}).get("messages", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["message"])
-        return data
+    async def get_all_messages(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("messages", "messages", "message", api_key, include_all_fields, limit, starting_after)
 
     async def get_message_by_id(self, message_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/messages/{message_id}", api_key)
@@ -833,7 +864,7 @@ class TwentyClient:
         return data
 
     async def update_messages(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/messages?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateMessages", {})
@@ -846,18 +877,13 @@ class TwentyClient:
         return await self.delete(f"/rest/messages/{message_id}", api_key)
 
     async def delete_messages(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/messages?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("messages", ids, api_key)
 
     # =========================================================================
     # MessageThread
     # =========================================================================
-    async def get_all_message_threads(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/messageThreads", api_key)
-        data = raw.get("data", {}).get("messageThreads", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["messageThread"])
-        return data
+    async def get_all_message_threads(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("messageThreads", "messageThreads", "messageThread", api_key, include_all_fields, limit, starting_after)
 
     async def get_message_thread_by_id(self, message_thread_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/messageThreads/{message_thread_id}", api_key)
@@ -884,7 +910,7 @@ class TwentyClient:
         return data
 
     async def update_message_threads(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/messageThreads?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateMessageThreads", {})
@@ -897,18 +923,13 @@ class TwentyClient:
         return await self.delete(f"/rest/messageThreads/{message_thread_id}", api_key)
 
     async def delete_message_threads(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/messageThreads?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("messageThreads", ids, api_key)
 
     # =========================================================================
     # MessageParticipant
     # =========================================================================
-    async def get_all_message_participants(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/messageParticipants", api_key)
-        data = raw.get("data", {}).get("messageParticipants", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["messageParticipant"])
-        return data
+    async def get_all_message_participants(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("messageParticipants", "messageParticipants", "messageParticipant", api_key, include_all_fields, limit, starting_after)
 
     async def get_message_participant_by_id(self, message_participant_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/messageParticipants/{message_participant_id}", api_key)
@@ -935,7 +956,7 @@ class TwentyClient:
         return data
 
     async def update_message_participants(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/messageParticipants?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateMessageParticipants", {})
@@ -948,18 +969,13 @@ class TwentyClient:
         return await self.delete(f"/rest/messageParticipants/{message_participant_id}", api_key)
 
     async def delete_message_participants(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/messageParticipants?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("messageParticipants", ids, api_key)
 
     # =========================================================================
     # CallRecording
     # =========================================================================
-    async def get_all_call_recordings(self, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        raw = await self.get("/rest/callRecordings", api_key)
-        data = raw.get("data", {}).get("callRecordings", [])
-        if not include_all_fields:
-            data = _filter_fields(data, COMMON_FIELDS["callRecording"])
-        return data
+    async def get_all_call_recordings(self, api_key: Optional[str] = None, include_all_fields: bool = False, limit: int = 60, starting_after: Optional[str] = None) -> Any:
+        return await self._list_page("callRecordings", "callRecordings", "callRecording", api_key, include_all_fields, limit, starting_after)
 
     async def get_call_recording_by_id(self, call_recording_id: str, api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
         raw = await self.get(f"/rest/callRecordings/{call_recording_id}", api_key)
@@ -986,7 +1002,7 @@ class TwentyClient:
         return data
 
     async def update_call_recordings(self, ids: list[str], payload: dict[str, Any], api_key: Optional[str] = None, include_all_fields: bool = False) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
+        id_list = _id_filter(ids)
         normalized = self._normalize_payload(payload)
         raw = await self.patch(f"/rest/callRecordings?filter=id[in]:{id_list}", api_key, json=normalized)
         data = raw.get("data", {}).get("updateCallRecordings", {})
@@ -999,5 +1015,4 @@ class TwentyClient:
         return await self.delete(f"/rest/callRecordings/{call_recording_id}", api_key)
 
     async def delete_call_recordings(self, ids: list[str], api_key: Optional[str] = None) -> Any:
-        id_list = '[' + ','.join(str(i) for i in ids) + ']'
-        return await self.delete(f"/rest/callRecordings?filter=id[in]:{id_list}", api_key)
+        return await self._delete_many("callRecordings", ids, api_key)

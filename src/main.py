@@ -495,6 +495,24 @@ def _parse_json_field(value: str) -> Any:
         return {}
 
 
+def _list_response(page: dict[str, Any]) -> dict[str, Any]:
+    result = {
+        "items": json_to_toon(page["items"]),
+        "total_count": page.get("total_count"),
+        "page_info": page.get("page_info") or {},
+    }
+    if page.get("warning"):
+        result["warning"] = page["warning"]
+    return result
+
+
+def _require_update_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Reject empty update payloads so an update cannot silently no-op."""
+    if not payload:
+        raise ValueError("At least one field must be provided to update.")
+    return payload
+
+
 def _build_payload(params: BaseModel) -> dict[str, Any]:
     payload = {}
     for k, v in params.model_dump(exclude_defaults=True).items():
@@ -558,17 +576,23 @@ def _day_name_to_int(v: str | int | None) -> int | None:
 @mcp.tool(
     tags={"basic", "twenty"}, annotations=ToolAnnotations(title="List Companies", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_companies(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all company records.
+async def list_companies(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List company records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_companies(
+    page = await get_client().get_all_companies(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -638,7 +662,7 @@ async def update_company(
         linkedinLink=linkedinLink, annualRevenue=annualRevenue,
         accountOwnerId=accountOwnerId, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_company(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -675,14 +699,14 @@ async def update_companies(
         linkedinLink=linkedinLink, annualRevenue=annualRevenue,
         accountOwnerId=accountOwnerId, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_companies(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"basic", "twenty"}, annotations=ToolAnnotations(title="Delete Company By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"basic", "twenty"}, annotations=ToolAnnotations(title="Delete Company By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_company_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a company by its ID (hard destroy).
@@ -695,7 +719,7 @@ async def delete_company_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Companies", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Companies", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_companies(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete companies by IDs (hard destroy).
@@ -703,8 +727,7 @@ async def delete_companies(ids: list[str], ctx: Context = None) -> dict[str, Any
     Args:
         ids: List of company IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_companies(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_companies(ids, get_user_token())
 
 
 # =============================================================================
@@ -713,17 +736,23 @@ async def delete_companies(ids: list[str], ctx: Context = None) -> dict[str, Any
 @mcp.tool(
     tags={"basic", "twenty"}, annotations=ToolAnnotations(title="List People", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_people(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all person records.
+async def list_people(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List person records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_people(
+    page = await get_client().get_all_people(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -805,7 +834,7 @@ async def update_person(
         id=id, name=name, emails=emails, phones=phones, jobTitle=jobTitle,
         linkedinLink=linkedinLink, companyId=companyId, avatarUrl=avatarUrl, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_person(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -843,14 +872,14 @@ async def update_people(
         name=name, emails=emails, phones=phones, jobTitle=jobTitle,
         linkedinLink=linkedinLink, companyId=companyId, avatarUrl=avatarUrl, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_people(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"basic", "twenty"}, annotations=ToolAnnotations(title="Delete Person By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"basic", "twenty"}, annotations=ToolAnnotations(title="Delete Person By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_person_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a person by their ID (hard destroy).
@@ -863,7 +892,7 @@ async def delete_person_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete People", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete People", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_people(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete people by IDs (hard destroy).
@@ -871,8 +900,7 @@ async def delete_people(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     Args:
         ids: List of person IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_people(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_people(ids, get_user_token())
 
 
 # =============================================================================
@@ -881,17 +909,23 @@ async def delete_people(ids: list[str], ctx: Context = None) -> dict[str, Any]:
 @mcp.tool(
     tags={"basic", "twenty"}, annotations=ToolAnnotations(title="List Opportunities", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_opportunities(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all opportunity records.
+async def list_opportunities(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List opportunity records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_opportunities(
+    page = await get_client().get_all_opportunities(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -966,7 +1000,7 @@ async def update_opportunity(
         name=name, amount=amount, closeDate=closeDate, stage=_enum_upper(stage),
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_opportunity(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -1004,14 +1038,14 @@ async def update_opportunities(
         name=name, amount=amount, closeDate=closeDate, stage=_enum_upper(stage),
         companyId=companyId, pointOfContactId=pointOfContactId, ownerId=ownerId, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_opportunities(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"basic", "twenty"}, annotations=ToolAnnotations(title="Delete Opportunity By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"basic", "twenty"}, annotations=ToolAnnotations(title="Delete Opportunity By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_opportunity_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete an opportunity by its ID (hard destroy).
@@ -1024,7 +1058,7 @@ async def delete_opportunity_by_id(id: str, ctx: Context = None) -> dict[str, An
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Opportunities", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Opportunities", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_opportunities(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete opportunities by IDs (hard destroy).
@@ -1032,8 +1066,7 @@ async def delete_opportunities(ids: list[str], ctx: Context = None) -> dict[str,
     Args:
         ids: List of opportunity IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_opportunities(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_opportunities(ids, get_user_token())
 
 
 # =============================================================================
@@ -1042,17 +1075,23 @@ async def delete_opportunities(ids: list[str], ctx: Context = None) -> dict[str,
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Notes", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_notes(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all note records.
+async def list_notes(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List note records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_notes(
+    page = await get_client().get_all_notes(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -1111,7 +1150,7 @@ async def update_note(
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(id=id, title=title, bodyV2=bodyV2, position=position)
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_note(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -1137,14 +1176,14 @@ async def update_notes(
     """
     bodyV2 = _wrap_markdown(markdown) if markdown else None
     params = UpdateNoteParam(title=title, bodyV2=bodyV2, position=position)
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_notes(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Note By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Note By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_note_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a note by its ID (hard destroy).
@@ -1157,7 +1196,7 @@ async def delete_note_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Notes", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Notes", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_notes(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete notes by IDs (hard destroy).
@@ -1165,8 +1204,7 @@ async def delete_notes(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     Args:
         ids: List of note IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_notes(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_notes(ids, get_user_token())
 
 
 # =============================================================================
@@ -1175,17 +1213,23 @@ async def delete_notes(ids: list[str], ctx: Context = None) -> dict[str, Any]:
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Tasks", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_tasks(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all task records.
+async def list_tasks(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List task records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_tasks(
+    page = await get_client().get_all_tasks(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -1262,7 +1306,7 @@ async def update_task(
         id=id, title=title, bodyV2=bodyV2, status=_enum_upper(status), dueAt=dueAt,
         assigneeId=assigneeId, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_task(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -1297,14 +1341,14 @@ async def update_tasks(
         title=title, bodyV2=bodyV2, status=_enum_upper(status), dueAt=dueAt,
         assigneeId=assigneeId, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_tasks(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Task By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Task By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_task_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a task by its ID (hard destroy).
@@ -1317,7 +1361,7 @@ async def delete_task_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Tasks", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Tasks", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_tasks(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete tasks by IDs (hard destroy).
@@ -1325,8 +1369,7 @@ async def delete_tasks(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     Args:
         ids: List of task IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_tasks(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_tasks(ids, get_user_token())
 
 
 # =============================================================================
@@ -1335,17 +1378,23 @@ async def delete_tasks(ids: list[str], ctx: Context = None) -> dict[str, Any]:
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Workflows", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_workflows(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all workflow records.
+async def list_workflows(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List workflow records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_workflows(
+    page = await get_client().get_all_workflows(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -1407,14 +1456,14 @@ async def update_workflow(
     params = UpdateWorkflowParam(
         id=id, name=name, statuses=_enum_upper_list(statuses), lastPublishedVersionId=lastPublishedVersionId, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_workflow(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Workflow By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Workflow By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_workflow_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a workflow by its ID (hard destroy).
@@ -1432,17 +1481,23 @@ async def delete_workflow_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Workspace Members", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_workspace_members(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all workspace member records.
+async def list_workspace_members(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List workspace member records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_workspace_members(
+    page = await get_client().get_all_workspace_members(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -1499,7 +1554,7 @@ async def update_workspace_member(
         userEmail=userEmail, calendarStartDay=_day_name_to_int(calendarStartDay), timeZone=timeZone,
         dateFormat=_snake_to_pascal(dateFormat), timeFormat=_snake_to_pascal(timeFormat), numberFormat=_snake_to_pascal(numberFormat), position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_workspace_member(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -1544,7 +1599,7 @@ async def update_workspace_members(
         userEmail=userEmail, calendarStartDay=_day_name_to_int(calendarStartDay), timeZone=timeZone,
         dateFormat=_snake_to_pascal(dateFormat), timeFormat=_snake_to_pascal(timeFormat), numberFormat=_snake_to_pascal(numberFormat), position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_workspace_members(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -1556,17 +1611,23 @@ async def update_workspace_members(
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Attachments", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_attachments(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all attachment records.
+async def list_attachments(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List attachment records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_attachments(
+    page = await get_client().get_all_attachments(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -1668,7 +1729,7 @@ async def update_attachment(
         targetOpportunityId=targetOpportunityId, targetDashboardId=targetDashboardId,
         targetWorkflowId=targetWorkflowId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_attachment(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -1717,14 +1778,14 @@ async def update_attachments(
         targetOpportunityId=targetOpportunityId, targetDashboardId=targetDashboardId,
         targetWorkflowId=targetWorkflowId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_attachments(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Attachment By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Attachment By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_attachment_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete an attachment by its ID (hard destroy).
@@ -1737,7 +1798,7 @@ async def delete_attachment_by_id(id: str, ctx: Context = None) -> dict[str, Any
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Attachments", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Attachments", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_attachments(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete attachments by IDs (hard destroy).
@@ -1745,8 +1806,7 @@ async def delete_attachments(ids: list[str], ctx: Context = None) -> dict[str, A
     Args:
         ids: List of attachment IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_attachments(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_attachments(ids, get_user_token())
 
 
 # =============================================================================
@@ -1755,17 +1815,23 @@ async def delete_attachments(ids: list[str], ctx: Context = None) -> dict[str, A
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Note Targets", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_note_targets(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all note target records.
+async def list_note_targets(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List note target records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_note_targets(
+    page = await get_client().get_all_note_targets(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -1835,7 +1901,7 @@ async def update_note_target(
         id=id, noteId=noteId, targetPersonId=targetPersonId,
         targetCompanyId=targetCompanyId, targetOpportunityId=targetOpportunityId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_note_target(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -1865,14 +1931,14 @@ async def update_note_targets(
         noteId=noteId, targetPersonId=targetPersonId,
         targetCompanyId=targetCompanyId, targetOpportunityId=targetOpportunityId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_note_targets(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Note Target By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Note Target By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_note_target_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a note target by its ID (hard destroy).
@@ -1885,7 +1951,7 @@ async def delete_note_target_by_id(id: str, ctx: Context = None) -> dict[str, An
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Note Targets", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Note Targets", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_note_targets(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete note targets by IDs (hard destroy).
@@ -1893,8 +1959,7 @@ async def delete_note_targets(ids: list[str], ctx: Context = None) -> dict[str, 
     Args:
         ids: List of note target IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_note_targets(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_note_targets(ids, get_user_token())
 
 
 # =============================================================================
@@ -1903,17 +1968,23 @@ async def delete_note_targets(ids: list[str], ctx: Context = None) -> dict[str, 
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Task Targets", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_task_targets(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all task target records.
+async def list_task_targets(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List task target records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_task_targets(
+    page = await get_client().get_all_task_targets(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -1983,7 +2054,7 @@ async def update_task_target(
         id=id, taskId=taskId, targetPersonId=targetPersonId,
         targetCompanyId=targetCompanyId, targetOpportunityId=targetOpportunityId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_task_target(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -2013,14 +2084,14 @@ async def update_task_targets(
         taskId=taskId, targetPersonId=targetPersonId,
         targetCompanyId=targetCompanyId, targetOpportunityId=targetOpportunityId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_task_targets(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Task Target By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Task Target By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_task_target_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a task target by its ID (hard destroy).
@@ -2033,7 +2104,7 @@ async def delete_task_target_by_id(id: str, ctx: Context = None) -> dict[str, An
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Task Targets", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Task Targets", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_task_targets(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete task targets by IDs (hard destroy).
@@ -2041,8 +2112,7 @@ async def delete_task_targets(ids: list[str], ctx: Context = None) -> dict[str, 
     Args:
         ids: List of task target IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_task_targets(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_task_targets(ids, get_user_token())
 
 
 # =============================================================================
@@ -2051,17 +2121,23 @@ async def delete_task_targets(ids: list[str], ctx: Context = None) -> dict[str, 
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Timeline Activities", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_timeline_activities(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all timeline activity records.
+async def list_timeline_activities(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List timeline activity records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_timeline_activities(
+    page = await get_client().get_all_timeline_activities(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -2170,7 +2246,7 @@ async def update_timeline_activity(
         targetDashboardId=targetDashboardId, targetMessageListId=targetMessageListId,
         targetMessageCampaignId=targetMessageCampaignId, properties=properties, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_timeline_activity(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -2234,14 +2310,14 @@ async def update_timeline_activities(
         targetDashboardId=targetDashboardId, targetMessageListId=targetMessageListId,
         targetMessageCampaignId=targetMessageCampaignId, properties=properties, position=position,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_timeline_activities(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Timeline Activity By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Timeline Activity By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_timeline_activity_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a timeline activity by its ID (hard destroy).
@@ -2254,7 +2330,7 @@ async def delete_timeline_activity_by_id(id: str, ctx: Context = None) -> dict[s
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Timeline Activities", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Timeline Activities", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_timeline_activities(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete timeline activities by IDs (hard destroy).
@@ -2262,8 +2338,7 @@ async def delete_timeline_activities(ids: list[str], ctx: Context = None) -> dic
     Args:
         ids: List of timeline activity IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_timeline_activities(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_timeline_activities(ids, get_user_token())
 
 
 # =============================================================================
@@ -2272,17 +2347,23 @@ async def delete_timeline_activities(ids: list[str], ctx: Context = None) -> dic
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Calendar Events", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_calendar_events(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all calendar event records.
+async def list_calendar_events(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List calendar event records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_calendar_events(
+    page = await get_client().get_all_calendar_events(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -2369,7 +2450,7 @@ async def update_calendar_event(
         startsAt=startsAt, endsAt=endsAt, description=description,
         location=location, iCalUid=iCalUid, conferenceLink=conferenceLink,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_calendar_event(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -2412,14 +2493,14 @@ async def update_calendar_events(
         startsAt=startsAt, endsAt=endsAt, description=description,
         location=location, iCalUid=iCalUid, conferenceLink=conferenceLink,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_calendar_events(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Event By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Event By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_calendar_event_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a calendar event by its ID (hard destroy).
@@ -2432,7 +2513,7 @@ async def delete_calendar_event_by_id(id: str, ctx: Context = None) -> dict[str,
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Events", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Events", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_calendar_events(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete calendar events by IDs (hard destroy).
@@ -2440,8 +2521,7 @@ async def delete_calendar_events(ids: list[str], ctx: Context = None) -> dict[st
     Args:
         ids: List of calendar event IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_calendar_events(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_calendar_events(ids, get_user_token())
 
 
 # =============================================================================
@@ -2450,17 +2530,23 @@ async def delete_calendar_events(ids: list[str], ctx: Context = None) -> dict[st
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Calendar Event Participants", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_calendar_event_participants(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all calendar event participant records.
+async def list_calendar_event_participants(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List calendar event participant records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_calendar_event_participants(
+    page = await get_client().get_all_calendar_event_participants(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -2544,7 +2630,7 @@ async def update_calendar_event_participant(
         isOrganizer=isOrganizer, responseStatus=_enum_upper(responseStatus),
         personId=personId, workspaceMemberId=workspaceMemberId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_calendar_event_participant(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -2581,14 +2667,14 @@ async def update_calendar_event_participants(
         isOrganizer=isOrganizer, responseStatus=_enum_upper(responseStatus),
         personId=personId, workspaceMemberId=workspaceMemberId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_calendar_event_participants(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Event Participant By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Event Participant By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_calendar_event_participant_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a calendar event participant by its ID (hard destroy).
@@ -2601,7 +2687,7 @@ async def delete_calendar_event_participant_by_id(id: str, ctx: Context = None) 
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Event Participants", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Calendar Event Participants", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_calendar_event_participants(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete calendar event participants by IDs (hard destroy).
@@ -2609,8 +2695,7 @@ async def delete_calendar_event_participants(ids: list[str], ctx: Context = None
     Args:
         ids: List of calendar event participant IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_calendar_event_participants(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_calendar_event_participants(ids, get_user_token())
 
 
 # =============================================================================
@@ -2619,17 +2704,23 @@ async def delete_calendar_event_participants(ids: list[str], ctx: Context = None
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Messages", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_messages(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all message records.
+async def list_messages(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List message records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_messages(
+    page = await get_client().get_all_messages(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -2697,7 +2788,7 @@ async def update_message(
         receivedAt=receivedAt, messageThreadId=messageThreadId,
         messageCampaignId=messageCampaignId, deliveryStatus=_enum_upper(deliveryStatus),
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_message(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -2734,14 +2825,14 @@ async def update_messages(
         receivedAt=receivedAt, messageThreadId=messageThreadId,
         messageCampaignId=messageCampaignId, deliveryStatus=_enum_upper(deliveryStatus),
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_messages(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Message By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Message By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_message_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message by its ID (hard destroy).
@@ -2754,7 +2845,7 @@ async def delete_message_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Messages", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Messages", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_messages(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete messages by IDs (hard destroy).
@@ -2762,8 +2853,7 @@ async def delete_messages(ids: list[str], ctx: Context = None) -> dict[str, Any]
     Args:
         ids: List of message IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_messages(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_messages(ids, get_user_token())
 
 
 # =============================================================================
@@ -2772,17 +2862,23 @@ async def delete_messages(ids: list[str], ctx: Context = None) -> dict[str, Any]
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Message Threads", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_message_threads(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all message thread records.
+async def list_message_threads(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List message thread records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_message_threads(
+    page = await get_client().get_all_message_threads(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -2834,7 +2930,7 @@ async def update_message_thread(
         subject: Updated subject of the message thread.
     """
     params = UpdateMessageThreadParam(id=id, subject=subject)
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_message_thread(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -2855,14 +2951,14 @@ async def update_message_threads(
         subject: Updated subject of the message thread.
     """
     params = UpdateMessageThreadParam(subject=subject)
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_message_threads(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Message Thread By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Message Thread By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_message_thread_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message thread by its ID (hard destroy).
@@ -2875,7 +2971,7 @@ async def delete_message_thread_by_id(id: str, ctx: Context = None) -> dict[str,
 
 
 @mcp.tool(
-    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Message Threads", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"primary", "twenty"}, annotations=ToolAnnotations(title="Delete Message Threads", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_message_threads(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete message threads by IDs (hard destroy).
@@ -2883,8 +2979,7 @@ async def delete_message_threads(ids: list[str], ctx: Context = None) -> dict[st
     Args:
         ids: List of message thread IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_message_threads(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_message_threads(ids, get_user_token())
 
 
 # =============================================================================
@@ -2893,17 +2988,23 @@ async def delete_message_threads(ids: list[str], ctx: Context = None) -> dict[st
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Message Participants", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_message_participants(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all message participant records.
+async def list_message_participants(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List message participant records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_message_participants(
+    page = await get_client().get_all_message_participants(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -2987,7 +3088,7 @@ async def update_message_participant(
         personId=personId, workspaceMemberId=workspaceMemberId,
         messageCampaignId=messageCampaignId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_message_participant(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -3024,14 +3125,14 @@ async def update_message_participants(
         personId=personId, workspaceMemberId=workspaceMemberId,
         messageCampaignId=messageCampaignId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_message_participants(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Message Participant By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Message Participant By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_message_participant_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a message participant by its ID (hard destroy).
@@ -3044,7 +3145,7 @@ async def delete_message_participant_by_id(id: str, ctx: Context = None) -> dict
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Message Participants", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Message Participants", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_message_participants(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete message participants by IDs (hard destroy).
@@ -3052,8 +3153,7 @@ async def delete_message_participants(ids: list[str], ctx: Context = None) -> di
     Args:
         ids: List of message participant IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_message_participants(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_message_participants(ids, get_user_token())
 
 
 # =============================================================================
@@ -3062,17 +3162,23 @@ async def delete_message_participants(ids: list[str], ctx: Context = None) -> di
 @mcp.tool(
     tags={"primary", "twenty"}, annotations=ToolAnnotations(title="List Call Recordings", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
-async def list_call_recordings(include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
-    """List all call recording records.
+async def list_call_recordings(limit: int = 60, starting_after: Optional[str] = None, include_all_fields: bool = False, ctx: Context = None) -> dict[str, Any]:
+    """List call recording records.
 
     Args:
+        limit: Maximum records to return (1-200). Defaults to 60.
+        starting_after: Cursor from page_info.endCursor to fetch the next page.
         include_all_fields: Default False (common fields only). Set True for all fields.
+            On aggregate list calls this is honored only when ALLOW_ALL_AGGREGATE=true;
+            otherwise it is intentionally ignored to bound response size.
     """
-    data = await get_client().get_all_call_recordings(
+    page = await get_client().get_all_call_recordings(
         get_user_token(),
-        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False
+        include_all_fields=include_all_fields if ALLOW_ALL_AGGREGATE else False,
+        limit=limit,
+        starting_after=starting_after,
     )
-    return {"items": json_to_toon(data)}
+    return _list_response(page)
 
 
 @mcp.tool(
@@ -3147,7 +3253,7 @@ async def update_call_recording(
         externalRecordingId=externalRecordingId, startedAt=startedAt,
         endedAt=endedAt, calendarEventId=calendarEventId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_call_recording(
         id, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
@@ -3189,14 +3295,14 @@ async def update_call_recordings(
         externalRecordingId=externalRecordingId, startedAt=startedAt,
         endedAt=endedAt, calendarEventId=calendarEventId,
     )
-    payload = _build_payload(params)
+    payload = _require_update_payload(_build_payload(params))
     return await get_client().update_call_recordings(
         ids, payload, get_user_token(), include_all_fields=ALLOW_ALL_AGGREGATE
     )
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Call Recording By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Call Recording By Id", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_call_recording_by_id(id: str, ctx: Context = None) -> dict[str, Any]:
     """Delete a call recording by its ID (hard destroy).
@@ -3209,7 +3315,7 @@ async def delete_call_recording_by_id(id: str, ctx: Context = None) -> dict[str,
 
 
 @mcp.tool(
-    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Call Recordings", readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+    tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Delete Call Recordings", readOnlyHint=False, destructiveHint=True, idempotentHint=False, openWorldHint=False)
 )
 async def delete_call_recordings(ids: list[str], ctx: Context = None) -> dict[str, Any]:
     """Bulk delete call recordings by IDs (hard destroy).
@@ -3217,8 +3323,7 @@ async def delete_call_recordings(ids: list[str], ctx: Context = None) -> dict[st
     Args:
         ids: List of call recording IDs (UUID format, e.g. "a1b2c3d4-..") to delete.
     """
-    await get_client().delete_call_recordings(ids, get_user_token())
-    return {"deleted": True, "count": len(ids)}
+    return await get_client().delete_call_recordings(ids, get_user_token())
 
 
 # =============================================================================
@@ -3228,16 +3333,32 @@ async def delete_call_recordings(ids: list[str], ctx: Context = None) -> dict[st
     tags={"advanced", "twenty"}, annotations=ToolAnnotations(title="Check Server Status", readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 )
 async def check_server_status(ctx: Context = None) -> dict[str, Any]:
-    """Check connectivity to the Twenty backend API."""
+    """Check connectivity and authentication against the Twenty backend API."""
     import httpx
     client = get_client()
+    token = get_user_token()
+    if not token:
+        return {
+            "status": "unauthenticated",
+            "error": "Missing Authorization bearer token",
+        }
     try:
         async with httpx.AsyncClient(timeout=5.0) as http_client:
             response = await http_client.get(
                 f"{client.base_url}/rest/companies",
-                headers={"Authorization": f"Bearer {get_user_token()}"}
+                headers={"Authorization": f"Bearer {token}"},
+                params={"limit": 1},
             )
-            return {"status": "connected", "backend_response": response.status_code}
+            if response.status_code >= 400:
+                return {
+                    "status": "disconnected",
+                    "backend_response": response.status_code,
+                    "error": response.text[:300],
+                }
+            return {
+                "status": "connected",
+                "backend_response": response.status_code,
+            }
     except Exception as e:
         return {"status": "disconnected", "error": str(e)}
 

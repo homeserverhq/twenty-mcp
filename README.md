@@ -3,16 +3,16 @@
 This repository contains a Model Context Protocol (MCP) server that acts
 as a secure, multi-tenant proxy between an AI Assistant and the Twenty
 backend API. It exposes **115 MCP tools** covering 17 resource domains
-with CRUD operations, search, and relationship management.
+with CRUD operations, cursor pagination, and relationship management.
 
 ## ✨ Features
 
 - **🔑 Identity Passthrough** — Extracts the `Authorization: Bearer <token>`
   header from incoming HTTP requests and forwards it to the Twenty API
   without server-side authentication.
-- **👥 Multi-Tenancy** — Uses Python `contextvars` to maintain thread-safe
-  user identity isolation, ensuring all AI-driven actions are scoped to
-  the authenticated user's permissions.
+- **👥 Multi-Tenancy** — Uses Python `contextvars` to maintain per-request
+  token isolation, ensuring all AI-driven actions are scoped to the
+  authenticated workspace and key.
 - **📊 Full Twenty Coverage** — 115 tools mapped to Twenty REST API endpoints
   across 17 resource domains.
 - **⚡ TOON Optimization** — Bulk list responses are automatically compressed
@@ -20,8 +20,12 @@ with CRUD operations, search, and relationship management.
   and maximize context window efficiency.
 - **🚀 Efficient Gets** — GET responses return only commonly used fields by
   default. Full objects are available via an `include_all_fields` flag.
-- **🧪 Comprehensive Testing** — 132 automated tests covering all tool
-  domains, run via the test runner pipeline.
+- **📄 Cursor Pagination** — Every `list_*` tool accepts `limit` (1–200) and
+  `starting_after`, and returns `total_count` plus `page_info`.
+- **🕒 ISO Dates** — Date/time inputs accept ISO 8601 with `Z` or an offset,
+  including fractional seconds; payloads are normalized to UTC.
+- **🧪 Comprehensive Testing** — 132 smoke tests plus a 640-check semantic
+  audit with full tool coverage.
 - **🏷️ Tool Annotations** — All tools expose standard MCP ToolAnnotations
   hints (readOnlyHint, destructiveHint, idempotentHint, openWorldHint).
   The tags field carries grouping metadata (basic/primary/advanced + twenty).
@@ -32,7 +36,7 @@ with CRUD operations, search, and relationship management.
 |----------|----------|-------------|
 | `TWENTY_BASE_URL` | Yes | Docker-internal URL of the Twenty API (e.g. `http://twenty-app:3000`). |
 | `MCP_SERVER_PORT` | Yes | Port number the MCP server listens on |
-| `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is silently forced to `False` for aggregate list operations. |
+| `ALLOW_ALL_AGGREGATE` | No | When `true`, aggregate listing tools honor the `include_all_fields` parameter. When `false` (default), the parameter is forced to `False` for aggregate list operations; list-tool docstrings state this explicitly. |
 | `IS_STATEFUL` | No | When `true`, uses stateful Streamable HTTP with session tracking. When `false` (default), uses stateless mode. |
 
 ## 📦 Installation & Local Development
@@ -71,12 +75,68 @@ The MCP server serves at `http://twenty-mcp:80/mcp` (Streamable HTTP).
   on all `get_*` and `list_*` tools) controls whether all available fields
   are included in responses. Defaults to `False` for performance; set to
   `True` only when additional fields are needed.
-- **🔒 `ALLOW_ALL_AGGREGATE`** — Controls whether aggregate listing tools respect the `include_all_fields` parameter. When set to `false` (default), all aggregate list operations silently return only default fields regardless of the caller's request.
+- **🔒 `ALLOW_ALL_AGGREGATE`** — A deliberate hard gate for aggregate
+  list calls. When `false` (default), `list_*` tools return only the common
+  field set even if the caller passes `include_all_fields=true`. This is
+  intentional: it prevents a single aggregate call from blowing up the model
+  context. Single-record `get_*` tools always honor `include_all_fields`.
+  The list-tool docstrings state this behavior explicitly.
+- **🕒 Dates** — Pass ISO 8601 strings with an explicit offset or `Z`, e.g.
+  `2026-06-22T15:00:00-04:00`. Naive datetimes, date-only values, and epoch
+  integers are rejected.
+- **✍️ Updates** — Every `update_*` call must include at least one mutable
+  field; an id-only update is rejected instead of silently doing nothing.
+- **🚫 Empty bulk calls** — Bulk update/delete reject an empty `ids` list.
 - **⚡ TOON Compression** — All bulk list responses are automatically
   compressed using TOON to reduce token consumption by 30–60%.
 - **📝 Required Fields & Defaults** — Each `create_*` tool requires specific
   key fields. All other fields default to empty strings or reasonable values.
   The `createdBy` field is automatically populated by the backend API.
+
+## 🧪 Semantic Audit
+
+The audit suite lives in `src/audit/` and is independent of the server code.
+It speaks JSON-RPC/SSE to a running server and covers every tool in
+`tools/list`.
+
+```bash
+# Run inside the server container
+export API_KEY="<twenty-api-key>"
+python -m src.audit.selftest
+python -m src.audit.runner --l0 --quiet   # schema-only; no API key required
+python -m src.audit.runner --all --quiet
+```
+
+Useful options:
+
+```bash
+python -m src.audit.runner --list-domains
+python -m src.audit.runner --domain resources,pagination
+python -m src.audit.runner --all --report docs/tool-audit.md \
+    --json docs/tool-audit.json
+```
+
+`--all` enforces coverage: every live tool must be declared and called, and
+the residue scan must find zero `MCPAudit-<run>` fixtures. The audit uses the
+same workspace-scoped bearer token as a normal client; set
+`AUDIT_SECONDARY_API_KEY` to add a second key for same-workspace visibility
+checks.
+
+See `docs/tool-audit.md`, `docs/tool-audit.json`, and `docs/audit-notes.md`
+for the latest run and known limitations.
+
+### Known backend limitations
+
+- **`list_messages`** — Twenty's message list joins
+  `messageChannelMessageAssociation`. This workspace has no message channels,
+  so the backend returns `totalCount > 0` with zero rows. `get_message_by_id`
+  still works. The list tool now returns a `warning` when the backend reports
+  more rows than it returns.
+- **Calendar events created by this MCP** — Twenty's calendar-event list joins
+  `calendarChannelEventAssociation`. Events created through `create_calendar_event`
+  have no association, so they are visible through `get_calendar_event_by_id`
+  but omitted from `list_calendar_events`. The list tool returns a `warning`
+  for this count mismatch.
 
 ## 🛠️ API Tool Mapping
 
@@ -84,7 +144,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🏢 Company (7 tools)
 
-- `list_companies` — List all company records
+- `list_companies` — List company records
 - `get_company_by_id` — Get a single company by ID
 - `create_company` — Create a new company record
 - `update_company` — Update an existing company record
@@ -94,7 +154,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🧑 Person (7 tools)
 
-- `list_people` — List all person records
+- `list_people` — List person records
 - `get_person_by_id` — Get a single person by ID
 - `create_person` — Create a new person record
 - `update_person` — Update an existing person record
@@ -104,7 +164,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 💰 Opportunity (7 tools)
 
-- `list_opportunities` — List all opportunity records
+- `list_opportunities` — List opportunity records
 - `get_opportunity_by_id` — Get a single opportunity by ID
 - `create_opportunity` — Create a new opportunity record
 - `update_opportunity` — Update an existing opportunity record
@@ -114,7 +174,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 📓 Note (7 tools)
 
-- `list_notes` — List all note records
+- `list_notes` — List note records
 - `get_note_by_id` — Get a single note by ID
 - `create_note` — Create a new note record
 - `update_note` — Update an existing note record
@@ -124,7 +184,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### ✅ Task (7 tools)
 
-- `list_tasks` — List all task records
+- `list_tasks` — List task records
 - `get_task_by_id` — Get a single task by ID
 - `create_task` — Create a new task record
 - `update_task` — Update an existing task record
@@ -134,7 +194,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🌀 Workflow (5 tools)
 
-- `list_workflows` — List all workflow records
+- `list_workflows` — List workflow records
 - `get_workflow_by_id` — Get a single workflow by ID
 - `create_workflow` — Create a new workflow record
 - `update_workflow` — Update an existing workflow record
@@ -142,14 +202,14 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🆔 WorkspaceMember (4 tools)
 
-- `list_workspace_members` — List all workspace member records
+- `list_workspace_members` — List workspace member records
 - `get_workspace_member_by_id` — Get a single workspace member by ID
 - `update_workspace_member` — Update an existing workspace member record
 - `update_workspace_members` — Bulk update workspace member records by IDs
 
 ### 📎 Attachment (7 tools)
 
-- `list_attachments` — List all attachment records
+- `list_attachments` — List attachment records
 - `get_attachment_by_id` — Get a single attachment by ID
 - `create_attachment` — Create a new attachment record
 - `update_attachment` — Update an existing attachment record
@@ -159,7 +219,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🔖 NoteTarget (7 tools)
 
-- `list_note_targets` — List all note target records
+- `list_note_targets` — List note target records
 - `get_note_target_by_id` — Get a single note target by ID
 - `create_note_target` — Create a new note target record
 - `update_note_target` — Update an existing note target record
@@ -169,7 +229,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🎯 TaskTarget (7 tools)
 
-- `list_task_targets` — List all task target records
+- `list_task_targets` — List task target records
 - `get_task_target_by_id` — Get a single task target by ID
 - `create_task_target` — Create a new task target record
 - `update_task_target` — Update an existing task target record
@@ -179,7 +239,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### ⏰ TimelineActivity (7 tools)
 
-- `list_timeline_activities` — List all timeline activity records
+- `list_timeline_activities` — List timeline activity records
 - `get_timeline_activity_by_id` — Get a single timeline activity by ID
 - `create_timeline_activity` — Create a new timeline activity record
 - `update_timeline_activity` — Update an existing timeline activity record
@@ -189,7 +249,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 📅 CalendarEvent (7 tools)
 
-- `list_calendar_events` — List all calendar event records
+- `list_calendar_events` — List calendar event records
 - `get_calendar_event_by_id` — Get a single calendar event by ID
 - `create_calendar_event` — Create a new calendar event record
 - `update_calendar_event` — Update an existing calendar event record
@@ -199,7 +259,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🙋 CalendarEventParticipant (7 tools)
 
-- `list_calendar_event_participants` — List all calendar event participant records
+- `list_calendar_event_participants` — List calendar event participant records
 - `get_calendar_event_participant_by_id` — Get a single calendar event participant by ID
 - `create_calendar_event_participant` — Create a new calendar event participant record
 - `update_calendar_event_participant` — Update an existing calendar event participant record
@@ -209,7 +269,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### ✉️ Message (7 tools)
 
-- `list_messages` — List all message records
+- `list_messages` — List message records
 - `get_message_by_id` — Get a single message by ID
 - `create_message` — Create a new message record
 - `update_message` — Update an existing message record
@@ -219,7 +279,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 📬 MessageThread (7 tools)
 
-- `list_message_threads` — List all message thread records
+- `list_message_threads` — List message thread records
 - `get_message_thread_by_id` — Get a single message thread by ID
 - `create_message_thread` — Create a new message thread record
 - `update_message_thread` — Update an existing message thread record
@@ -229,7 +289,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🗣️ MessageParticipant (7 tools)
 
-- `list_message_participants` — List all message participant records
+- `list_message_participants` — List message participant records
 - `get_message_participant_by_id` — Get a single message participant by ID
 - `create_message_participant` — Create a new message participant record
 - `update_message_participant` — Update an existing message participant record
@@ -239,7 +299,7 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🎙️ CallRecording (7 tools)
 
-- `list_call_recordings` — List all call recording records
+- `list_call_recordings` — List call recording records
 - `get_call_recording_by_id` — Get a single call recording by ID
 - `create_call_recording` — Create a new call recording record
 - `update_call_recording` — Update an existing call recording record
@@ -249,4 +309,4 @@ The server implements 115 MCP tools organized into the following categories:
 
 ### 🔧 Domain-Specific Tools (1 tool)
 
-- `check_server_status` — Check connectivity to the Twenty backend API
+- `check_server_status` — Check connectivity and authentication against the Twenty backend API
